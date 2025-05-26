@@ -1,0 +1,276 @@
+if os.date("%Y%m%d") > "20250620" then
+gg.setVisible(false)
+gameguardianph=gg.alert("❌Script Expired❌\nBeli Vip Script : 6285706400133")
+os.exit()
+end
+-- Local nama paket Apk Agar tidakk Bisa Di buka Jika Tidak Dari Game Tsb
+T = gg.getTargetPackage ()
+if T == "com.asobimo.aurcusonline.ww" then
+else
+gg.setVisible(false)
+gg.alert("❌Not Script To Game❌")
+os.exit()
+end
+if true then
+    local search = gg.searchNumber
+    local func = function(...)
+        gg.setVisible(false)
+        local tab = search(...)
+        if gg.isVisible() then
+            gg.setVisible(false)
+            gg.alert("[💢] Ga Usah Di Intip Bang!")
+            gg.sleep("1000")
+            gg.processKill()
+        end
+        return tab
+    end
+    gg.searchNumber = func
+end
+local scriptPath = gg.getFile() -- Lokasi script saat ini
+local banFile = "/sdcard/.gg_device_banned.txt"
+local md5File = "/sdcard/.gg_script_md5.txt"
+
+-- Fungsi hash MD5
+local function md5(input)
+  local ok, crypto = pcall(require, "crypto") -- butuh Lua dengan lib crypto
+  if ok and crypto then
+    return crypto.digest("md5", input)
+  else
+    -- fallback sederhana: pakai hash dari panjang+karakter
+    local hash = 0
+    for i = 1, #input do
+      hash = (hash + string.byte(input, i) * i) % 1000000007
+    end
+    return tostring(hash)
+  end
+end
+
+-- Fungsi baca file
+local function readFile(path)
+  local f = io.open(path, "r")
+  if not f then return nil end
+  local d = f:read("*a")
+  f:close()
+  return d
+end
+
+-- Fungsi tulis file
+local function writeFile(path, text)
+  local f = io.open(path, "w")
+  if not f then return false end
+  f:write(text)
+  f:close()
+  return true
+end
+
+-- Baca isi script
+local scriptText = readFile(scriptPath)
+if not scriptText then
+gg.setVisible(false)
+  gg.alert("❌ Gagal membaca script.")
+  os.exit()
+end
+
+-- Hitung hash script sekarang
+local currentHash = md5(scriptText)
+
+-- Jika sebelumnya sudah disimpan hash
+local savedHash = readFile(md5File)
+if savedHash then
+  if savedHash ~= currentHash then
+    writeFile(banFile, "1")
+    gg.setVisible(false)
+    gg.alert("🚫 Script telah dimodifikasi atau diintipAkses diblokir.")
+    os.exit()
+  end
+else
+  -- Simpan hash pertama kali
+  writeFile(md5File, currentHash)
+end
+
+-- Cek apakah sudah dibanned
+local isBanned = readFile(banFile)
+if isBanned == "1" then
+gg.setVisible(false)
+  gg.alert("🚫 Anda telah dibanned karena mencoba membongkar script.")
+  os.exit()
+end
+
+-- Aman, lanjutkan
+gg.setVisible(false)
+gg.alert("✅ Proteksi berhasil. Script dijalankan.")
+-- Tambahkan script utama kamu di bawah ini
+
+
+-- Device ID Lock
+local lockFile = "/sdcard/.gg_device_lock.txt"
+local banFile = "/sdcard/.gg_device_banned.txt"
+
+-- Fungsi buat ID unik
+local function generateDeviceId()
+  math.randomseed(os.time())
+  local id = ""
+  for i = 1, 16 do
+    id = id .. string.char(math.random(65, 90)) -- A-Z
+  end
+  return id
+end
+
+-- Fungsi baca file
+local function readFile(path)
+  local file = io.open(path, "r")
+  if file then
+    local content = file:read("*l")
+    file:close()
+    return content
+  end
+  return nil
+end
+
+-- Fungsi tulis file
+local function writeFile(path, content)
+  local file = io.open(path, "w")
+  if file then
+    file:write(content)
+    file:close()
+    return true
+  end
+  return false
+end
+
+-- Cek status banned
+local isBanned = readFile(banFile)
+if isBanned == "1" then
+gg.setVisible(false)
+  gg.alert("🚫 Anda telah dibanned karena gagal verifikasi terlalu banyak.")
+  os.exit()
+end
+
+-- Cek apakah ID sudah disimpan
+local savedId = readFile(lockFile)
+
+if savedId then
+  -- Verifikasi: maksimal 3x percobaan
+  local attempts = 0
+  while attempts < 3 do
+    local userId = gg.prompt({"Masukkan ID perangkat untuk menjalankan script:"}, {""})[1]
+    if userId == savedId then
+    gg.setVisible(false)
+      gg.alert("✅ Verifikasi berhasil.")
+      break
+    else
+      attempts = attempts + 1
+      gg.setVisible(false)
+      gg.alert("❌ ID salah! Percobaan ke " .. attempts .. " dari 3.")
+    end
+  end
+
+  if attempts >= 3 then
+    writeFile(banFile, "1")
+    gg.setVisible(false)
+    gg.alert("🚫 Anda telah dibanned dari script ini.")
+    os.exit()
+  end
+
+else
+  -- Belum pernah dikunci, buat ID baru dan simpan
+  local newId = generateDeviceId()
+  local success = writeFile(lockFile, newId)
+  if success then
+    gg.copyText(newId)  -- Salin ke clipboard
+    gg.setVisible(false)
+    gg.alert("✅ Script berhasil dikunci ke perangkat ini ID kamu: [ " .. newId .. " ] ID telah disalin ke clipboard. Simpan baik-baik ID ini!")
+  else
+  gg.setVisible(false)
+    gg.alert("❌ Gagal menyimpan ID perangkat.")
+    os.exit()
+  end
+end
+
+-- Lanjutkan ke script utama
+gg.setVisible(false)
+gg.alert("✅ Akses diterima. Menjalankan script...")
+-- Tambahkan script utama kamu di bawah sini
+
+
+gg.setVisible(false)
+function main()
+  local menu = gg.choice({
+    "1. Anti Force Close Saat Login",
+    "2. Stabilizer Saat Pindah Map",
+    "3. Clear Memory Manual",
+    "4. Keluar"
+  }, nil,os.date("⏩⏩SCRIPT FREE VELLIX⏪⏪\n📆 Date: %A, %B %d %Y\n⏲️ Time: %I:%M %p\nVELLIX_AO Aurcus Online\n🇮🇩 Aurcus 3.2.1 GLOBAL🇮🇩"))
+
+  if menu == 1 then
+    antiLogin()
+  elseif menu == 2 then
+    mapStabilizer()
+  elseif menu == 3 then
+    clearMemory()
+  elseif menu == 4 then
+    os.exit()
+  end
+end
+
+function antiLogin()
+  gg.clearResults()
+  gg.searchNumber("1337;1;0;0::17", gg.TYPE_DWORD)
+  gg.refineNumber("1337")
+  local r = gg.getResults(10)
+  for i, v in ipairs(r) do
+    v.value = "0"
+    v.freeze = true
+  end
+  gg.addListItems(r)
+  gg.toast("Anti Force Close Login Aktif")
+end
+
+function mapStabilizer()
+  gg.setVisible(false)
+
+function disableGGDetection()
+  gg.setRanges(gg.REGION_CODE_APP | gg.REGION_JAVA_HEAP)
+  gg.searchNumber("4761214;1162690580::17", gg.TYPE_DWORD) -- Nilai acak yang sering muncul dari libgg
+  gg.clearResults()
+  gg.toast("Bypass Deteksi GG Aktif")
+end
+
+function advancedMapStabilizer()
+ 
+  gg.clearResults()
+  gg.setRanges(gg.REGION_C_ALLOC)
+  gg.searchNumber("20000000~60000000", gg.TYPE_DWORD)
+  local res = gg.getResults(20)
+  for i, v in ipairs(res) do
+    v.value = "0"
+    v.freeze = true
+  end
+  gg.addListItems(res)
+  gg.toast("Advanced Stabilizer Aktif")
+end
+
+disableGGDetection()
+advancedMapStabilizer()
+gg.setVisible(false)
+gg.clearResults()
+gg.setRanges(gg.REGION_C_DATA)
+gg.searchNumber("gg", gg.TYPE_BYTE)
+gg.clearResults()
+gg.clearList()
+gg.toast("Mode Hantu Aktif: GG Disembunyikan Total")
+gg.toast("Map Crash Protection Siap. Sekarang coba pindah map.")
+end
+
+function clearMemory()
+  gg.clearResults()
+  gg.clearList()
+  gg.toast("Memory Game Guardian Dibersihkan")
+end
+
+while true do
+  if gg.isVisible(true) then
+    gg.setVisible(false)
+    main()
+  end
+end
