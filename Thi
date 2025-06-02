@@ -1,0 +1,74 @@
+-- 💖 VELLIX UID GENERATOR ULTRA GEMOY 💖
+
+if not gg then os.exit() end
+
+local lockFile = "/sdcard/Android/.gg_vellix_device_uid.txt"
+
+local function generateUID()
+  local prefix = "VX"
+  local hex = "0123456789ABCDEF"
+  local cute = {"F", "X", "C", "P", "M", "N"}
+
+  local function randStr(src, len)
+    local t = {}
+    for i = 1, len do
+      local r = math.random(1, #src)
+      table.insert(t, src:sub(r, r))
+    end
+    return table.concat(t)
+  end
+
+  math.randomseed(os.time())
+  local middle = randStr(hex, 8)
+  local suffix = randStr(table.concat(cute), 4)
+  return prefix .. "-" .. middle .. "-" .. suffix
+end
+
+local function loadingUnyu()
+  local bar = ""
+  local total = 15
+  for i = 1, total do
+    bar = bar .. "♥"
+    gg.toast("🎀 Membuat UID Gemoy...\n[" .. bar .. string.rep("♡", total - i) .. "] " .. (i * 100 / total) .. "%%")
+    gg.sleep(100 + math.random(10,50))
+  end
+end
+
+-- 🐾 Cek apakah UID sudah ada
+local uid = nil
+local f = io.open(lockFile, "r")
+if f then uid = f:read("*l") f:close() end
+
+gg.setVisible(false)
+gg.sleep(300)
+
+if uid then
+  gg.toast("🔍 Mengecek UID kamu...")
+  gg.sleep(800)
+  gg.alert("🐱 Kamu sudah punya UID sebelumnya:\n\n✨ " .. uid .. " ✨\n\n📋 Sudah disalin ke clipboard, nyan~")
+  gg.copyText(uid)
+  os.exit()
+end
+
+-- 💖 Buat UID baru
+loadingUnyu()
+uid = generateUID()
+
+-- 🔒 Simpan UID ke file
+local f = io.open(lockFile, "w")
+if f then f:write(uid) f:close() end
+
+gg.toast("✅ UID berhasil dibuat!")
+gg.copyText(uid)
+
+-- 🌸 Tampilkan UID akhir
+gg.alert([[
+🎀 UID Gemoy kamu:
+
+🆔 ]] .. uid .. [[
+
+📋 Sudah disalin otomatis ke clipboard!
+Kirim ke admin sekarang yaa~ ✨😽
+]])
+
+os.exit()
