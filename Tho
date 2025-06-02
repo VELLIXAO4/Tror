@@ -1,276 +1,166 @@
-if os.date("%Y%m%d") > "20250620" then
-gg.setVisible(false)
-gameguardianph=gg.alert("❌Script Expired❌\nBeli Vip Script : 6285706400133")
-os.exit()
-end
--- Local nama paket Apk Agar tidakk Bisa Di buka Jika Tidak Dari Game Tsb
-T = gg.getTargetPackage ()
-if T == "com.asobimo.aurcusonline.ww" then
-else
-gg.setVisible(false)
-gg.alert("❌Not Script To Game❌")
-os.exit()
-end
-if true then
-    local search = gg.searchNumber
-    local func = function(...)
-        gg.setVisible(false)
-        local tab = search(...)
-        if gg.isVisible() then
-            gg.setVisible(false)
-            gg.alert("[💢] Ga Usah Di Intip Bang!")
-            gg.sleep("1000")
-            gg.processKill()
-        end
-        return tab
-    end
-    gg.searchNumber = func
-end
-local scriptPath = gg.getFile() -- Lokasi script saat ini
-local banFile = "/sdcard/.gg_device_banned.txt"
-local md5File = "/sdcard/.gg_script_md5.txt"
 
--- Fungsi hash MD5
-local function md5(input)
-  local ok, crypto = pcall(require, "crypto") -- butuh Lua dengan lib crypto
-  if ok and crypto then
-    return crypto.digest("md5", input)
-  else
-    -- fallback sederhana: pakai hash dari panjang+karakter
-    local hash = 0
-    for i = 1, #input do
-      hash = (hash + string.byte(input, i) * i) % 1000000007
-    end
-    return tostring(hash)
+if not gg then os.exit() end
+gg.setVisible(false)
+
+-- 🌸 File UID dan banned
+local uidFile = "/sdcard/Android/.gg_vellix_device_uid.txt"
+local banFile = "/sdcard/Android/.gg_vellix_banned_uid.txt"
+
+-- 🔒 Ambil UID
+local function getUID()
+  local f = io.open(uidFile, "r")
+  if f then
+    local uid = f:read("*l")
+    f:close()
+    return uid
   end
 end
 
--- Fungsi baca file
-local function readFile(path)
-  local f = io.open(path, "r")
-  if not f then return nil end
-  local d = f:read("*a")
-  f:close()
-  return d
-end
-
--- Fungsi tulis file
-local function writeFile(path, text)
-  local f = io.open(path, "w")
-  if not f then return false end
-  f:write(text)
-  f:close()
-  return true
-end
-
--- Baca isi script
-local scriptText = readFile(scriptPath)
-if not scriptText then
-gg.setVisible(false)
-  gg.alert("❌ Gagal membaca script.")
+local uid = getUID()
+if not uid then
+  gg.alert("❌ UID tidak ditemukan!\nHarap generate UID terlebih dahulu.")
   os.exit()
 end
 
--- Hitung hash script sekarang
-local currentHash = md5(scriptText)
-
--- Jika sebelumnya sudah disimpan hash
-local savedHash = readFile(md5File)
-if savedHash then
-  if savedHash ~= currentHash then
-    writeFile(banFile, "1")
-    gg.setVisible(false)
-    gg.alert("🚫 Script telah dimodifikasi atau diintipAkses diblokir.")
-    os.exit()
-  end
-else
-  -- Simpan hash pertama kali
-  writeFile(md5File, currentHash)
-end
-
--- Cek apakah sudah dibanned
-local isBanned = readFile(banFile)
-if isBanned == "1" then
-gg.setVisible(false)
-  gg.alert("🚫 Anda telah dibanned karena mencoba membongkar script.")
-  os.exit()
-end
-
--- Aman, lanjutkan
-gg.setVisible(false)
-gg.alert("✅ Proteksi berhasil. Script dijalankan.")
--- Tambahkan script utama kamu di bawah ini
-
-
--- Device ID Lock
-local lockFile = "/sdcard/.gg_device_lock.txt"
-local banFile = "/sdcard/.gg_device_banned.txt"
-
--- Fungsi buat ID unik
-local function generateDeviceId()
-  math.randomseed(os.time())
-  local id = ""
-  for i = 1, 16 do
-    id = id .. string.char(math.random(65, 90)) -- A-Z
-  end
-  return id
-end
-
--- Fungsi baca file
-local function readFile(path)
-  local file = io.open(path, "r")
-  if file then
-    local content = file:read("*l")
-    file:close()
-    return content
-  end
-  return nil
-end
-
--- Fungsi tulis file
-local function writeFile(path, content)
-  local file = io.open(path, "w")
-  if file then
-    file:write(content)
-    file:close()
-    return true
+-- 🛑 Cek apakah UID dibanned
+local function isBanned(uid)
+  local f = io.open(banFile, "r")
+  if f then
+    for line in f:lines() do
+      if line == uid then
+        f:close()
+        return true
+      end
+    end
+    f:close()
   end
   return false
 end
 
--- Cek status banned
-local isBanned = readFile(banFile)
-if isBanned == "1" then
-gg.setVisible(false)
-  gg.alert("🚫 Anda telah dibanned karena gagal verifikasi terlalu banyak.")
+if isBanned(uid) then
+  gg.alert("🚫 Akses ditolak!\nUID ini telah diblokir karena modifikasi script.")
   os.exit()
 end
 
--- Cek apakah ID sudah disimpan
-local savedId = readFile(lockFile)
+-- ⚠️ Jika modifikasi terdeteksi, simpan UID ke daftar banned
+local function banUID(uid)
+  local f = io.open(banFile, "a")
+  if f then
+    f:write(uid .. "\n")
+    f:close()
+  end
+end
 
-if savedId then
-  -- Verifikasi: maksimal 3x percobaan
-  local attempts = 0
-  while attempts < 3 do
-    local userId = gg.prompt({"Masukkan ID perangkat untuk menjalankan script:"}, {""})[1]
-    if userId == savedId then
-    gg.setVisible(false)
-      gg.alert("✅ Verifikasi berhasil.")
-      break
-    else
-      attempts = attempts + 1
-      gg.setVisible(false)
-      gg.alert("❌ ID salah! Percobaan ke " .. attempts .. " dari 3.")
+-- 🕵️‍♀️ Cek modifikasi script (self-check)
+local function integrityCheck()
+  local thisFile = debug.getinfo(1, "S").source:sub(2)
+  local f = io.open(thisFile, "r")
+  if not f then return end
+  local content = f:read("*all")
+  f:close()
+
+  local critical = {
+    "firebaseURL",
+    "gg.makeRequest",
+    "script_url",
+    "load(run.content)()"
+  }
+
+  for _, key in ipairs(critical) do
+    if not content:find(key, 1, true) then
+      banUID(uid)
+      gg.alert("❌ Script telah dimodifikasi!\nUID ini sekarang diblokir permanen.")
+      os.exit()
     end
   end
-
-  if attempts >= 3 then
-    writeFile(banFile, "1")
-    gg.setVisible(false)
-    gg.alert("🚫 Anda telah dibanned dari script ini.")
-    os.exit()
-  end
-
-else
-  -- Belum pernah dikunci, buat ID baru dan simpan
-  local newId = generateDeviceId()
-  local success = writeFile(lockFile, newId)
-  if success then
-    gg.copyText(newId)  -- Salin ke clipboard
-    gg.setVisible(false)
-    gg.alert("✅ Script berhasil dikunci ke perangkat ini ID kamu: [ " .. newId .. " ] ID telah disalin ke clipboard. Simpan baik-baik ID ini!")
-  else
-  gg.setVisible(false)
-    gg.alert("❌ Gagal menyimpan ID perangkat.")
-    os.exit()
-  end
 end
 
--- Lanjutkan ke script utama
+-- 🚧 Jalankan check
+integrityCheck()
+
+--🌸 Vellix UID Auth System | Kawaii Edition 🐰✨
+if not gg then os.exit() end
 gg.setVisible(false)
-gg.alert("✅ Akses diterima. Menjalankan script...")
--- Tambahkan script utama kamu di bawah sini
 
+local uidFile = "/sdcard/Android/.gg_vellix_device_uid.txt"
 
-gg.setVisible(false)
-function main()
-  local menu = gg.choice({
-    "1. Anti Force Close Saat Login",
-    "2. Stabilizer Saat Pindah Map",
-    "3. Clear Memory Manual",
-    "4. Keluar"
-  }, nil,os.date("⏩⏩SCRIPT FREE VELLIX⏪⏪\n📆 Date: %A, %B %d %Y\n⏲️ Time: %I:%M %p\nVELLIX_AO Aurcus Online\n🇮🇩 Aurcus 3.2.1 GLOBAL🇮🇩"))
-
-  if menu == 1 then
-    antiLogin()
-  elseif menu == 2 then
-    mapStabilizer()
-  elseif menu == 3 then
-    clearMemory()
-  elseif menu == 4 then
-    os.exit()
+--🐾 Ambil UID dari file lokal
+local function getUID()
+  local f = io.open(uidFile, "r")
+  if f then
+    local uid = f:read("*l")
+    f:close()
+    return uid
   end
 end
 
-function antiLogin()
-  gg.clearResults()
-  gg.searchNumber("1337;1;0;0::17", gg.TYPE_DWORD)
-  gg.refineNumber("1337")
-  local r = gg.getResults(10)
-  for i, v in ipairs(r) do
-    v.value = "0"
-    v.freeze = true
-  end
-  gg.addListItems(r)
-  gg.toast("Anti Force Close Login Aktif")
+local uid = getUID()
+if not uid then
+  gg.alert("🚫 Eeehh... UID-nya ga ketemu nih! (>﹏<)\n\n🎀 Coba generate UID dulu ya~")
+  os.exit()
 end
 
-function mapStabilizer()
-  gg.setVisible(false)
+gg.toast("🐇 Halo UID~ ✨\n" .. uid)
+gg.sleep(1300)
+gg.toast("🌸 Lagi nyambung ke server Panel yaa~ 🍓")
+gg.sleep(1600)
 
-function disableGGDetection()
-  gg.setRanges(gg.REGION_CODE_APP | gg.REGION_JAVA_HEAP)
-  gg.searchNumber("4761214;1162690580::17", gg.TYPE_DWORD) -- Nilai acak yang sering muncul dari libgg
-  gg.clearResults()
-  gg.toast("Bypass Deteksi GG Aktif")
+--🌐 Firebase Master_Log URL
+local firebaseURL = "https://iruna-afd77-default-rtdb.asia-southeast1.firebasedatabase.app/Master_Log/"..uid..".json"
+local res = gg.makeRequest(firebaseURL)
+
+if not res or res.code ~= 200 or not res.content or res.content == "null" then
+  gg.alert("😿 UID kamu belum terdaftar di server...\n\n✨ Hubungi admin cantik dulu ya~")
+  os.exit()
 end
 
-function advancedMapStabilizer()
- 
-  gg.clearResults()
-  gg.setRanges(gg.REGION_C_ALLOC)
-  gg.searchNumber("20000000~60000000", gg.TYPE_DWORD)
-  local res = gg.getResults(20)
-  for i, v in ipairs(res) do
-    v.value = "0"
-    v.freeze = true
-  end
-  gg.addListItems(res)
-  gg.toast("Advanced Stabilizer Aktif")
+--📖 Ambil data dari JSON
+local json = res.content
+local banned  = json:match('"banned"%s*:%s*"([^"]+)"')
+local expired = json:match('"expired"%s*:%s*"([^"]+)"')
+local password = json:match('"password"%s*:%s*"([^"]+)"')
+local script_url = json:match('"script_url"%s*:%s*"([^"]+)"')
+
+--🔒 Cek status banned
+if banned == "true" then
+  gg.alert("🚫 Aaaa~ UID ini dibanned 😭\n\n💌 Minta tolong admin yaa~")
+  os.exit()
 end
 
-disableGGDetection()
-advancedMapStabilizer()
-gg.setVisible(false)
-gg.clearResults()
-gg.setRanges(gg.REGION_C_DATA)
-gg.searchNumber("gg", gg.TYPE_BYTE)
-gg.clearResults()
-gg.clearList()
-gg.toast("Mode Hantu Aktif: GG Disembunyikan Total")
-gg.toast("Map Crash Protection Siap. Sekarang coba pindah map.")
+--📅 Cek tanggal kedaluwarsa
+local today = os.date("%Y-%m-%d")
+if expired and expired < today then
+  gg.alert("⛔ Huhuhu... Akses kamu udah expired sejak: " .. expired .. " 😢")
+  os.exit()
 end
 
-function clearMemory()
-  gg.clearResults()
-  gg.clearList()
-  gg.toast("Memory Game Guardian Dibersihkan")
+--🧁 Password Prompt
+local input = gg.prompt(
+  {"💖 Yuk masukin password kamu, UID-nya:\n" .. uid .. " 🧸"}, 
+  nil, 
+  {"text"}
+)
+
+if not input or input[1] ~= password then
+  gg.alert("🚫 Password-nya salah dong~ (>_<)\n\n📞 Hubungi admin yuk~")
+  os.exit()
 end
 
-while true do
-  if gg.isVisible(true) then
-    gg.setVisible(false)
-    main()
-  end
+--✨ Verifikasi berhasil uwu~
+gg.toast("🌈 Password benar! Siip~ 🩵")
+gg.sleep(1000)
+gg.toast("🍰 Tunggu yaa... lagi ambil script-nya dulu ✨")
+gg.sleep(1600)
+
+--📥 Ambil dan jalankan script utama
+local run = gg.makeRequest(script_url or "")
+if not run or run.code ~= 200 or not run.content then
+  gg.alert("😭 Ehh~ gagal ambil script-nya...\nCoba periksa koneksi kamu yaa~ 🌧️")
+  os.exit()
 end
+
+gg.toast("🌟 Script berhasil dimuat~ nyaaa 💕")
+gg.sleep(1000)
+
+--🦄 Jalankan isi script utama dari server~
+load(run.content)()
