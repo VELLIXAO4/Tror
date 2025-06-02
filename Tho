@@ -110,7 +110,7 @@ local firebaseURL = "https://iruna-afd77-default-rtdb.asia-southeast1.firebaseda
 local res = gg.makeRequest(firebaseURL)
 
 if not res or res.code ~= 200 or not res.content or res.content == "null" then
-  gg.alert("😿 UID kamu belum terdaftar di server...\n\n✨ Hubungi admin cantik dulu ya~")
+  gg.alert("😿 UID kamu belum terdaftar di server...\n\n✨ Hubungi admin Gantengku dulu ya~")
   os.exit()
 end
 
