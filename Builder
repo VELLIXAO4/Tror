@@ -1,0 +1,224 @@
+gg.setVisible(false)
+gg.alert("Selamat datang di Script Builder GG By VELLIXAO!\n\nSilakan pilih jenis menu yang ingin Anda buat.")
+
+local menuMode = gg.choice({
+    "🟢 Buat script dengan gg.choice (pilihan satu fitur)",
+    "🟡 Buat script dengan gg.multiChoice (pilihan banyak fitur)"
+}, nil, "Pilih tipe menu yang Anda inginkan:")
+
+if menuMode == nil then
+    gg.alert("❌ Anda tidak memilih menu. Script dibatalkan.")
+    os.exit()
+end
+
+local useMultiChoice = (menuMode == 2)
+gg.toast("✔ Mode menu yang dipilih: " .. (useMultiChoice and "multiChoice" or "choice"))
+
+local jumlahFunction = tonumber(gg.prompt({"Masukkan jumlah function yang ingin Anda buat:"}, nil, {"number"})[1])
+if jumlahFunction == nil or jumlahFunction <= 0 then
+    gg.alert("❌ Jumlah function tidak valid. Script dibatalkan.")
+    os.exit()
+end
+gg.toast("✔ Jumlah function: " .. jumlahFunction)
+
+local namaFunctions = {}
+for i = 1, jumlahFunction do
+    local input = gg.prompt({"Masukkan nama untuk function ke-" .. i .. ":"}, nil, {"text"})
+    if not input or input[1] == "" then
+        gg.alert("❌ Nama function tidak boleh kosong. Script dibatalkan.")
+        os.exit()
+    end
+    namaFunctions[i] = input[1]
+end
+gg.toast("✔ Semua nama function berhasil disimpan.")
+
+local regionPilihan = {
+    "gg.REGION_ANONYMOUS",
+    "gg.REGION_C_ALLOC",
+    "gg.REGION_CODE_APP",
+    "gg.REGION_BAD",
+    "gg.REGION_VIDEO",
+    "gg.REGION_JAVA_HEAP"
+}
+
+local typePilihan = {
+    Dword = "gg.TYPE_DWORD",
+    Float = "gg.TYPE_FLOAT",
+    Double = "gg.TYPE_DOUBLE",
+    Qword = "gg.TYPE_QWORD",
+    Word = "gg.TYPE_WORD",
+    Byte = "gg.TYPE_BYTE"
+}
+
+local functionData = {}
+
+for i = 1, jumlahFunction do
+    local namaFunc = namaFunctions[i]
+    gg.alert("📌 Sekarang konfigurasi function: " .. namaFunc)
+
+    local pilihRegion = gg.choice(regionPilihan, nil, "🌐 Pilih region pencarian:")
+    if not pilihRegion then os.exit() end
+    local region = regionPilihan[pilihRegion]
+
+    local pilihType = gg.choice({
+        "Dword", "Float", "Double", "Qword", "Word", "Byte"
+    }, nil, "📐 Pilih type value:")
+    if not pilihType then os.exit() end
+    local valueType = typePilihan[({
+        "Dword", "Float", "Double", "Qword", "Word", "Byte"
+    })[pilihType]]
+
+    local cariValue = gg.prompt({ "🔍 Value yang ingin dicari (Function: " .. namaFunc .. ")" }, nil, { "text" })
+    if not cariValue then os.exit() end
+
+    local refineValue = gg.prompt({ "🔬 Value untuk refine (kosongkan jika tidak ingin refine)" }, nil, { "text" })
+    if refineValue and refineValue[1] == "" then refineValue[1] = nil end
+
+    local editPrompt = gg.prompt({
+        "✏️ Nilai edit yang akan diterapkan:",
+        "🧊 Freeze nilai ini? (centang = true)"
+    }, nil, { "text", "checkbox" })
+    if not editPrompt then os.exit() end
+
+    local inginOffset = gg.choice({ "✅ Ya", "❌ Tidak" }, nil, "➕ Tambahkan offset?")
+    local offsets = {}
+
+    if inginOffset == 1 then
+        local jmlOffset = gg.prompt({ "Masukkan jumlah offset yang ingin diedit:" }, nil, { "number" })
+        local jml = tonumber(jmlOffset[1]) or 0
+
+        for j = 1, jml do
+            local inputOffset = gg.prompt({
+                "Offset ke-" .. j,
+                "Type offset (Dword, Float, Double, etc)",
+                "Nilai edit untuk offset",
+                "Freeze? true/false"
+            }, nil, { "text", "text", "text", "text" })
+
+            table.insert(offsets, {
+                offset = inputOffset[1],
+                tipe = inputOffset[2],
+                value = inputOffset[3],
+                freeze = (inputOffset[4] == "true")
+            })
+        end
+    end
+
+    functionData[i] = {
+        nama = namaFunc,
+        cari = cariValue[1],
+        refine = refineValue and refineValue[1] or nil,
+        edit = editPrompt[1],
+        freezeMain = editPrompt[2],
+        offsets = offsets,
+        region = region,
+        tipe = valueType
+    }
+
+    gg.toast("✅ Data untuk function " .. namaFunc .. " tersimpan.")
+end
+
+-- Bangun script hasil
+local hasilScript = {}
+table.insert(hasilScript, "-- 📜 Script hasil buatan otomatis dari Script Builder")
+table.insert(hasilScript, "gg.alert('📢 Pilih fitur terlebih dahulu dari menu.')")
+
+for i, func in ipairs(functionData) do
+    table.insert(hasilScript, "")
+    table.insert(hasilScript, "function " .. func.nama:gsub("%s+", "_") .. "()")
+    table.insert(hasilScript, "  gg.setRanges(" .. func.region .. ")")
+    table.insert(hasilScript, string.format("  gg.searchNumber('%s', %s)", func.cari, func.tipe))
+    if func.refine then
+        table.insert(hasilScript, string.format("  gg.refineNumber('%s', %s)", func.refine, func.tipe))
+    end
+    table.insert(hasilScript, "  local hasil = gg.getResults(100)")
+    table.insert(hasilScript, string.format("  for i = 1, #hasil do hasil[i].value = '%s'%s end",
+        func.edit, func.freezeMain and "; hasil[i].freeze = true" or ""))
+    table.insert(hasilScript, "  gg.setValues(hasil)")
+    if func.freezeMain then
+        table.insert(hasilScript, "  gg.addListItems(hasil)")
+    end
+
+    if func.offsets and #func.offsets > 0 then
+        table.insert(hasilScript, "  local baseResults = gg.getResults(100)")
+        table.insert(hasilScript, "  local patchData = {}")
+        table.insert(hasilScript, "  for _, base in ipairs(baseResults) do")
+        for _, off in ipairs(func.offsets) do
+            table.insert(hasilScript, string.format(
+                "    table.insert(patchData, {address = base.address + 0x%s, flags = gg.TYPE_%s, value = '%s', freeze = %s})",
+                off.offset:upper():gsub("^0X", ""),
+                off.tipe:upper(),
+                off.value,
+                tostring(off.freeze)
+            ))
+        end
+        table.insert(hasilScript, "  end")
+        table.insert(hasilScript, "  gg.setValues(patchData)")
+        table.insert(hasilScript, "  for _, item in ipairs(patchData) do if item.freeze then gg.addListItems({item}) end end")
+    end
+    table.insert(hasilScript, "end")
+end
+
+-- Bangun fungsi menu utama
+table.insert(hasilScript, "")
+table.insert(hasilScript, "function main()")
+if useMultiChoice then
+    table.insert(hasilScript, "  local pilih = gg.multiChoice({")
+    for i, func in ipairs(functionData) do
+        table.insert(hasilScript, string.format("    '%s',", func.nama))
+    end
+    table.insert(hasilScript, "  }, nil, '📋 Pilih fitur yang ingin dijalankan:')")
+    table.insert(hasilScript, "  if pilih then")
+    for i = 1, #functionData do
+        table.insert(hasilScript, string.format("    if pilih[%d] then %s() end", i, functionData[i].nama:gsub("%s+", "_")))
+    end
+    table.insert(hasilScript, "  end")
+else
+    table.insert(hasilScript, "  local pilih = gg.choice({")
+    for i, func in ipairs(functionData) do
+        table.insert(hasilScript, string.format("    '%s',", func.nama))
+    end
+    table.insert(hasilScript, "  }, nil, '📋 Pilih fitur yang ingin dijalankan:')")
+    for i = 1, #functionData do
+        table.insert(hasilScript, string.format("  if pilih == %d then %s() end", i, functionData[i].nama:gsub("%s+", "_")))
+    end
+end
+table.insert(hasilScript, "end")
+table.insert(hasilScript, "main()")
+
+local final = table.concat(hasilScript, "\n")
+
+-- Simpan file
+local folderOptions = {
+    "📂 /sdcard/",
+    "📂 /sdcard/Download/",
+    "📂 /sdcard/GameGuardian/",
+    "📂 /sdcard/GameGuardian/Scripts/",
+    "📝 Custom folder"
+}
+
+local pilihFolder = gg.choice(folderOptions, nil, "📁 Pilih folder penyimpanan:")
+if not pilihFolder then os.exit() end
+
+local folderPath = (pilihFolder == 5)
+    and gg.prompt({ "Masukkan path folder (akhiri dengan '/'): " }, nil, { "text" })[1]
+    or ({
+        "/sdcard/",
+        "/sdcard/Download/",
+        "/sdcard/GameGuardian/",
+        "/sdcard/GameGuardian/Scripts/"
+    })[pilihFolder]
+
+local namaFile = gg.prompt({ "📝 Nama file script (tanpa .lua):" }, nil, { "text" })[1]
+if not namaFile or namaFile == "" then os.exit() end
+
+local fullPath = folderPath .. namaFile .. ".lua"
+local file = io.open(fullPath, "w")
+if not file then
+    gg.alert("❌ Gagal menyimpan. Cek izin folder.")
+    os.exit()
+end
+file:write(final)
+file:close()
+
+gg.alert("✅ Script disimpan di:\n" .. fullPath)
