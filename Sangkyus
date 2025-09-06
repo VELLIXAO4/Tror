@@ -1,7 +1,7 @@
 -- ==========================================
--- Script Multiple Damage for Game Guardian
--- Berdasarkan analisis IL2CPP dump
--- Target: MobPrefabSetting & ProtegePrefabSetting
+-- Advanced Multiple Damage Script for Game Guardian
+-- Berdasarkan analisis IL2CPP dump MobPrefabSetting & ProtegePrefabSetting
+-- Dioptimalkan untuk menghindari force close
 -- ==========================================
 
 gg.setRanges(gg.REGION_C_ALLOC | gg.REGION_CODE_APP)
@@ -9,32 +9,299 @@ gg.clearResults()
 
 -- Konfigurasi dasar
 local LIB_NAME = "libil2cpp.so"
-local DAMAGE_MOTION_OFFSET = 0x2E2E390  -- GetDisableDamageMotionAtSkillBreak()
-local DAMAGE_EFFECT_OFFSET = 0x2E2E354  -- GetDamageEffectPath()
+local TARGET_OFFSETS = {
+    DAMAGE_MULTIPLIER = 0x2E2E390,  -- GetDisableDamageMotionAtSkillBreak()
+    DAMAGE_EFFECT = 0x2E2E354,      -- GetDamageEffectPath()
+    HP_SETTING = 0x2E2E36C,         -- GetDeadSinkSpeed()
+    COLLISION_SETTING = 0x2E2E314   -- get_Collision()
+}
 
--- Variabel global untuk menyimpan state
+-- Variabel global
 local original_values = {}
 local current_multiplier = 1.0
 local is_active = false
+local safe_mode = true
 
--- Fungsi mendapatkan base address
+-- Fungsi untuk mendapatkan base address dengan safety check
 function get_base_address()
     local ranges = gg.getRangesList(LIB_NAME)
     if #ranges == 0 then
         gg.alert("❌ ERROR: " .. LIB_NAME .. " tidak ditemukan!")
         os.exit()
     end
-    return ranges[1].start
+    
+    -- Pilih range yang tepat (biasanya yang pertama)
+    local base_address = ranges[1].start
+    
+    -- Validasi base address
+    if base_address == nil or base_address == 0 then
+        gg.alert("❌ ERROR: Base address tidak valid!")
+        os.exit()
+    end
+    
+    return base_address
 end
 
--- Fungsi backup nilai original
+-- Fungsi backup nilai original dengan enhanced safety
 function backup_original_values()
     local base = get_base_address()
     
+    -- Backup semua nilai yang relevan
     original_values = {
         damage_motion = {
-            address = base + DAMAGE_MOTION_OFFSET,
-            value = gg.getValues({{address = base + DAMAGE_MOTION_OFFSET, flags = gg.TYPE_DWORD}})[1].value,
+            address = base + TARGET_OFFSETS.DAMAGE_MULTIPLIER,
+            original = gg.getValues({{address = base + TARGET_OFFSETS.DAMAGE_MULTIPLIER, flags = gg.TYPE_DWORD}})[1].value,
+            flags = gg.TYPE_DWORD
+        },
+        damage_effect = {
+            address = base + TARGET_OFFSETS.DAMAGE_EFFECT,
+            original = gg.getValues({{address = base + TARGET_OFFSETS.DAMAGE_EFFECT, flags = gg.TYPE_DWORD}})[1].value,
+            flags = gg.TYPE_DWORD
+        },
+        hp_setting = {
+            address = base + TARGET_OFFSETS.HP_SETTING,
+            original = gg.getValues({{address = base + TARGET_OFFSETS.HP_SETTING, flags = gg.TYPE_DWORD}})[1].value,
+            flags = gg.TYPE_DWORD
+        }
+    }
+    
+    gg.toast("✅ Backup nilai original berhasil")
+    return true
+end
+
+-- Fungsi apply damage multiplier yang lebih aman
+function apply_damage_multiplier(multiplier)
+    if not safety_check() then
+        gg.alert("❌ Gagal safety check! Tidak dapat menerapkan multiplier.")
+        return false
+    end
+    
+    local base = get_base_address()
+    current_multiplier = multiplier
+    
+    -- Modifikasi bertahap dengan delay untuk hindari detection
+    gg.sleep(100)
+    
+    -- 1. Modifikasi damage motion setting (nilai kecil dulu)
+    gg.setValues({
+        {
+            address = original_values.damage_motion.address,
+            value = 1,
+            flags = gg.TYPE_DWORD
+        }
+    })
+    
+    gg.sleep(50)
+    
+    -- 2. Modifikasi damage effect
+    gg.setValues({
+        {
+            address = original_values.damage_effect.address,
+            value = 1,
+            flags = gg.TYPE_DWORD
+        }
+    })
+    
+    gg.sleep(50)
+    
+    -- 3. Modifikasi HP setting (opsional)
+    if not safe_mode then
+        gg.setValues({
+            {
+                address = original_values.hp_setting.address,
+                value = 9999,  -- Nilai HP tinggi
+                flags = gg.TYPE_DWORD
+            }
+        })
+    end
+    
+    is_active = true
+    gg.toast("✅ Damage Multiplier x" .. multiplier .. " diaktifkan")
+    return true
+end
+
+-- Fungsi revert yang lebih comprehensive
+function revert_to_original()
+    if not original_values.damage_motion or not original_values.damage_effect then
+        gg.alert("❌ Backup nilai tidak ditemukan!")
+        return false
+    end
+    
+    -- Revert semua nilai ke original
+    gg.setValues({
+        {
+            address = original_values.damage_motion.address,
+            value = original_values.damage_motion.original,
+            flags = original_values.damage_motion.flags
+        },
+        {
+            address = original_values.damage_effect.address,
+            value = original_values.damage_effect.original,
+            flags = original_values.damage_effect.flags
+        }
+    })
+    
+    if original_values.hp_setting then
+        gg.setValues({
+            {
+                address = original_values.hp_setting.address,
+                value = original_values.hp_setting.original,
+                flags = original_values.hp_setting.flags
+            }
+        })
+    end
+    
+    is_active = false
+    current_multiplier = 1.0
+    gg.toast("✅ Revert ke nilai original berhasil")
+    return true
+end
+
+-- Enhanced safety check
+function safety_check()
+    local base = get_base_address()
+    
+    -- Check jika base address valid
+    if base == 0 or base == nil then
+        return false
+    end
+    
+    -- Check nilai-nilai critical
+    local current_motion = gg.getValues({{address = base + TARGET_OFFSETS.DAMAGE_MULTIPLIER, flags = gg.TYPE_DWORD}})[1].value
+    local current_effect = gg.getValues({{address = base + TARGET_OFFSETS.DAMAGE_EFFECT, flags = gg.TYPE_DWORD}})[1].value
+    
+    -- Validasi nilai tidak extreme
+    if current_motion > 1000 or current_effect > 1000 then
+        gg.alert("⚠️  Nilai tidak normal terdeteksi!")
+        return false
+    end
+    
+    return true
+end
+
+-- Fungsi test stability
+function test_stability()
+    gg.toast("🔍 Testing stability...")
+    gg.sleep(1000)
+    
+    if safety_check() then
+        gg.toast("✅ Stability test passed")
+        return true
+    else
+        gg.toast("❌ Stability test failed")
+        return false
+    end
+end
+
+-- Auto-repair function
+function auto_repair()
+    gg.alert("🛠️  Memulai auto-repair...")
+    
+    -- Coba revert dulu
+    revert_to_original()
+    gg.sleep(1000)
+    
+    -- Test stability
+    if test_stability() then
+        gg.alert("✅ Auto-repair berhasil!")
+        return true
+    else
+        gg.alert("❌ Auto-repair gagal! Coba restart game.")
+        return false
+    end
+end
+
+-- Main menu dengan lebih banyak opsi
+function main_menu()
+    while true do
+        local menu_options = {
+            "🔹 Backup Nilai Original",
+            "⚡ Damage Multiplier x2",
+            "⚡ Damage Multiplier x5", 
+            "⚡ Damage Multiplier x10",
+            "🛡️  Safe Mode: " .. (safe_mode and "ON" or "OFF"),
+            "🔧 Auto-Repair",
+            "🔍 Status System",
+            "↩️  Revert ke Original",
+            "❌ Keluar"
+        }
+        
+        local choice = gg.choice(menu_options, nil, "🎮 ADVANCED DAMAGE MENU\nCurrent: x" .. current_multiplier)
+        
+        if choice == nil then break end
+        
+        if choice == 1 then
+            backup_original_values()
+        elseif choice == 2 then
+            apply_damage_multiplier(2.0)
+        elseif choice == 3 then
+            apply_damage_multiplier(5.0)
+        elseif choice == 4 then
+            apply_damage_multiplier(10.0)
+        elseif choice == 5 then
+            safe_mode = not safe_mode
+            gg.toast("Safe Mode: " .. (safe_mode and "ON" or "OFF"))
+        elseif choice == 6 then
+            auto_repair()
+        elseif choice == 7 then
+            show_status()
+        elseif choice == 8 then
+            revert_to_original()
+        elseif choice == 9 then
+            break
+        end
+        
+        gg.sleep(500)
+    end
+end
+
+-- Fungsi show status yang lebih detail
+function show_status()
+    local base = get_base_address()
+    local motion_val = gg.getValues({{address = base + TARGET_OFFSETS.DAMAGE_MULTIPLIER, flags = gg.TYPE_DWORD}})[1].value
+    local effect_val = gg.getValues({{address = base + TARGET_OFFSETS.DAMAGE_EFFECT, flags = gg.TYPE_DWORD}})[1].value
+    local hp_val = gg.getValues({{address = base + TARGET_OFFSETS.HP_SETTING, flags = gg.TYPE_DWORD}})[1].value
+    
+    local status_text = "📊 SYSTEM STATUS:\n"
+    status_text = status_text .. "Multiplier Aktif: " .. tostring(is_active) .. "\n"
+    status_text = status_text .. "Current Multiplier: x" .. current_multiplier .. "\n"
+    status_text = status_text .. "Safe Mode: " .. (safe_mode and "ON" : "OFF") .. "\n"
+    status_text = status_text .. "Damage Motion Value: " .. motion_val .. "\n"
+    status_text = status_text .. "Damage Effect Value: " .. effect_val .. "\n"
+    status_text = status_text .. "HP Setting Value: " .. hp_val .. "\n"
+    status_text = status_text .. "Base Address: " .. string.format("%X", base)
+    
+    gg.alert(status_text)
+end
+
+-- Inisialisasi
+gg.toast("🎮 Advanced Damage Script Loaded")
+gg.alert("⚠️  PERINGATAN KEAMANAN:\n" ..
+         "1. Gunakan di akun dummy/testing saja\n" ..
+         "2. Script ini menggunakan teknik anti-detection\n" ..
+         "3. Selalu backup nilai original terlebih dahulu!\n" ..
+         "4. Safe Mode direkomendasikan untuk menghindari ban")
+
+-- Jalankan stability test pertama
+if test_stability() then
+    gg.toast("✅ System stabil, siap digunakan")
+else
+    gg.alert("⚠️  System tidak stabil! Disarankan restart game.")
+end
+
+-- Jalankan main menu
+main_menu()
+
+-- Auto-revert saat script exit
+function onExit()
+    if is_active then
+        gg.toast("🔄 Revert otomatis...")
+        revert_to_original()
+    end
+    gg.toast("Script dihentikan")
+end
+
+gg.registerExitHandler(onExit)            value = gg.getValues({{address = base + DAMAGE_MOTION_OFFSET, flags = gg.TYPE_DWORD}})[1].value,
             flags = gg.TYPE_DWORD
         },
         damage_effect = {
