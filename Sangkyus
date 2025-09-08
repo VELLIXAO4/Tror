@@ -53,7 +53,7 @@ if HOMEMENU == 3 then GAMEM()
 end
 if HOMEMENU == 6 then GAMEZ()
  end
- if HOMEMENU == 7 then crt()
+ if HOMEMENU == 7 then crtttt0000()
  end
  if HOMEMENU == 8 then bag()
  end
@@ -2805,7 +2805,7 @@ gg.sleep(2000)
 gg.clearList()
 end
 
-function crt()
+function crtttt0000()
 gg.clearResults()
 gg.setVisible(false)
 
