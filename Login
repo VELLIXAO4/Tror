@@ -3,8 +3,8 @@ if not gg then os.exit() end
 gg.setVisible(false)
 
 -- 🌸 File UID dan banned
-local uidFile = "/sdcard/Download/.Chrome"
-local banFile = "/sdcard/Download/.Downloads"
+local uidFile = "/sdcard/Android/.gg_vellix_device_uid.txt"
+local banFile = "/sdcard/Android/.gg_vellix_banned_uid.txt"
 
 -- 🔒 Ambil UID
 local function getUID()
@@ -18,7 +18,7 @@ end
 
 local uid = getUID()
 if not uid then
-  gg.alert("┌─ ERROR ─────────────────────────┐\n│                                 │\n│  💻 DeviceUID.NotFound()        │\n│  📁 File: uidFile │\n│  🛠️  Action: generateUID()      │\n│                                 │\n│  >> Run setup script first      │\n│  >> Contact: https://wa.me/6285706400133     │\n│                                 │\n└─────────────────────────────────┘")
+  gg.alert("❌ UID tidak ditemukan!\nHarap generate UID terlebih dahulu.")
   os.exit()
 end
 
@@ -38,7 +38,7 @@ local function isBanned(uid)
 end
 
 if isBanned(uid) then
-  gg.alert("┌─ ACCESS_DENIED ─────────────────┐\n│                                 │\n│  🚫 SecurityViolation.detected  │\n│  📋 Reason: script.modified()   │\n│  ⚡ Status: PERMANENTLY_BANNED   │\n│                                 │\n│  if (appeal.needed) {           │\n│    contact(admin.support);      │\n│  }                              │\n│                                 │\n└─────────────────────────────────┘")
+  gg.alert("🚫 Akses ditolak!\nUID ini telah diblokir karena modifikasi script.")
   os.exit()
 end
 
@@ -69,7 +69,7 @@ local function integrityCheck()
   for _, key in ipairs(critical) do
     if not content:find(key, 1, true) then
       banUID(uid)
-      gg.alert("┌─ SECURITY_BREACH ───────────────┐\n│                                 │\n│  💀 IntegrityCheck.FAILED()     │\n│  🔍 Tampered: " .. key .. "        │\n│  ⚡ Action: banUID.execute()     │\n│                                 │\n│  // You've been caught red-handed\n│  console.log('RIP your access');\n│                                 │\n└─────────────────────────────────┘")
+      gg.alert("❌ Script telah dimodifikasi!\nUID ini sekarang diblokir permanen.")
       os.exit()
     end
   end
@@ -96,23 +96,21 @@ end
 
 local uid = getUID()
 if not uid then
-  gg.alert("// ❌ Runtime Error\n\nclass DeviceAuthError extends Error {\n  constructor() {\n    super('UID not initialized');\n    this.code = 'DEV_001';\n  }\n}\n\n💡 Solution: Run deviceUID.init()\n📧 Support: https://wa.me/6285706400133")
+  gg.alert("🚫 Eeehh... UID-nya ga ketemu nih! (>﹏<)\n\n🎀 Coba generate UID dulu ya~")
   os.exit()
 end
 
-gg.toast("// 🚀 Initializing Vellix Dev Console\nconst deviceID = '" .. uid:sub(1,8) .. "•••••••••';\nconsole.log('Device authenticated ✅');")
+gg.toast("🐇 Halo UID~ ✨\n" .. uid)
+gg.sleep(1300)
+gg.toast("🌸 Lagi nyambung ke server Panel yaa~ 🍓")
 gg.sleep(1600)
-gg.toast("┌─ CONNECTING ────────────────────┐\n│                                 │\n│  📡 fetch('/api/auth/verify')   │\n│  ⏳ Status: establishing...     │\n│  🔐 SSL: enabled               │\n│                                 │\n└─────────────────────────────────┘")
-gg.sleep(1900)
-gg.toast("// 💻 Developer Mode Active\nawait authService.validateUser();\nrunning pre-flight checks...\nstatus: 'connecting_to_Server' 🔥")
-gg.sleep(1700)
 
 --🌐 Firebase Master_Log URL
 local firebaseURL = "https://iruna-afd77-default-rtdb.asia-southeast1.firebasedatabase.app/Master_Log/"..uid..".json"
 local res = gg.makeRequest(firebaseURL)
 
 if not res or res.code ~= 200 or not res.content or res.content == "null" then
-  gg.alert("┌─ HTTP_404 ──────────────────────┐\n│                                 │\n│  🌐 API Response: Not Found     │\n│  📝 Message: 'User not in DB'   │\n│  🎯 Action: Register required   │\n│                                 │\n│  const solution = {             │\n│    contact: 'https://wa.me/6285706400133', │\n│    type: 'premium_registration' │\n│  };                             │\n│                                 │\n└─────────────────────────────────┘")
+  gg.alert("😿 UID kamu belum terdaftar di server...\n\n✨ Hubungi admin cantik dulu ya~")
   os.exit()
 end
 
@@ -125,45 +123,44 @@ local script_url = json:match('"script_url"%s*:%s*"([^"]+)"')
 
 --🔒 Cek status banned
 if banned == "true" then
-  gg.alert("┌─ ACCESS_FORBIDDEN ──────────────┐\n│                                 │\n│  💀 if (user.isBanned) {        │\n│       return 403;               │\n│     }                           │\n│                                 │\n│  🔍 Reason: Code tampering      │\n│  📞 Support: Ticket system      │\n│                                 │\n│  // Better luck next time 😏    │\n│                                 │\n└─────────────────────────────────┘")
+  gg.alert("🚫 Aaaa~ UID ini dibanned 😭\n\n💌 Minta tolong admin yaa~")
   os.exit()
 end
 
 --📅 Cek tanggal kedaluwarsa
 local today = os.date("%Y-%m-%d")
 if expired and expired < today then
-  gg.alert("┌─ SUBSCRIPTION_EXPIRED ──────────┐\n│                                 │\n│  📅 const expiredOn = '" .. expired .. "';\n│  ⏰ const today = new Date();    │\n│  ❌ Status: expired              │\n│                                 │\n│  💳 Renewal options:            │\n│  • Premium: $9.99/month         │\n│  • Pro: $19.99/month            │\n│                                 │\n│  🎯 Contact: https://wa.me/6285706400133 │\n│                                 │\n└─────────────────────────────────┘")
+  gg.alert("⛔ Huhuhu... Akses kamu udah expired sejak: " .. expired .. " 😢")
   os.exit()
 end
 
 --🧁 Password Prompt
 local input = gg.prompt(
-{"┌─ AUTHENTICATION ────────────────┐\n│                                 │\n│  🔑 User: " .. uid:sub(1,12) .. "••••••••••   │\n│  🔐 Password required:          │\n│                                 │\n│  // Enter your dev access key   │\n│  const accessKey = prompt();    │\n│                                 │\n│  🛡️  Secured by VELLIXAO      │\n│                                 │\n└─────────────────────────────────┘"}, 
+  {"💖 Yuk masukin password kamu, UID-nya:\n" .. uid .. " 🧸"}, 
   nil, 
   {"text"}
 )
 
 if not input or input[1] ~= password then
-  gg.alert("┌─ AUTHENTICATION_FAILED ─────────┐\n│                                 │\n│  ❌ if (password !== hash) {     │\n│       throw new AuthError();    │\n│     }                           │\n│                                 │\n│  🔍 Debug: Invalid credentials  │\n│  💡 Hint: Check your keychain   │\n│                                 │\n│  📞 Forgot password?            │\n│     → https://wa.me/6285706400133          │\n│                                 │\n└─────────────────────────────────┘")
+  gg.alert("🚫 Password-nya salah dong~ (>_<)\n\n📞 Hubungi admin yuk~")
   os.exit()
 end
 
 --✨ Verifikasi berhasil uwu~
-gg.toast("┌─ LOADING_PREMIUM ───────────────┐\n│                                 │\n│  📦 npm install premium-features │\n│  ⚡ Webpack bundling...          │\n│  🎯 Optimizing performance...   │\n│                                 │\n└─────────────────────────────────┘")
-gg.sleep(2000)
-
-gg.toast("// 🚀 Dev Console Ready\nconst features = await import('./premium');\nruntime.status = 'LOADED';\nconsole.log('All systems operational! 🔥');")
-gg.sleep(1800)
+gg.toast("🌈 Password benar! Siip~ 🩵")
+gg.sleep(1000)
+gg.toast("🍰 Tunggu yaa... lagi ambil script-nya dulu ✨")
+gg.sleep(1600)
 
 --📥 Ambil dan jalankan script utama
 local run = gg.makeRequest(script_url or "")
 if not run or run.code ~= 200 or not run.content then
-  gg.alert("┌─ NETWORK_ERROR ─────────────────┐\n│                                 │\n│  🌐 fetch().catch(error => {    │\n│      console.error(error);      │\n│    });                          │\n│                                 │\n│  📊 Status: 500 Server Error    │\n│  🔧 Try: Check network conn.    │\n│                                 │\n│  📞 DevOps: https://wa.me/6285706400133      │\n│                                 │\n└─────────────────────────────────┘")
+  gg.alert("😭 Ehh~ gagal ambil script-nya...\nCoba periksa koneksi kamu yaa~ 🌧️")
   os.exit()
 end
 
-gg.toast("╔════════════════════════════════════════╗\n║         🎉 VELLIX DEV SUITE 🎉        ║\n║                                        ║\n║  Status: ✅ Online                    ║\n║  Mode:   💻 Script Premium         ║\n║  Build:  🚀 Production Ready          ║\n║                                        ║\n╚════════════════════════════════════════╝")
-gg.sleep(1200)
+gg.toast("🌟 Script berhasil dimuat~ nyaaa 💕")
+gg.sleep(1000)
 
 --🦄 Jalankan isi script utama dari server~
 load(run.content)()
