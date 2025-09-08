@@ -1,1868 +1,2377 @@
--- ==========================================
--- Precision Damage Multiplier Script
--- Berdasarkan analisis IL2CPP MobPrefabSetting & ProtegePrefabSetting
--- Namespace-aware dan field-specific
--- ==========================================
 
-gg.setRanges(gg.REGION_C_ALLOC | gg.REGION_CODE_APP)
-gg.clearResults()
 
--- Konfigurasi berdasarkan namespace yang benar
-local LIB_NAME = "libil2cpp.so"
-local MOB_NAMESPACE = "MobPrefabSetting"
-local PROTEGE_NAMESPACE = "ProtegePrefabSetting"
+local TARGET_PACKAGE = "com.asobimo.aurcusonline.ww"
+local TARGET_NAME = "Aurcus Online"
 
--- Field addresses berdasarkan namespace yang tepat
-local MOB_FIELDS = {
-    {
-        name = "DisableDamageMotionAtSkillBreak",
-        offset = 0xB4, 
-        type = gg.TYPE_BOOL,
-        namespace = MOB_NAMESPACE,
-        description = "Nonaktifkan motion damage saat skill break"
-    },
-    {
-        name = "DamageEffectSetColor", 
-        offset = 0xB5,
-        type = gg.TYPE_BOOL,
-        namespace = MOB_NAMESPACE,
-        description = "Aktifkan warna custom untuk efek damage"
-    },
-    {
-        name = "DamageEffectColor_R",
-        offset = 0xB8,
-        type = gg.TYPE_FLOAT,
-        namespace = MOB_NAMESPACE,
-        description = "Warna Red efek damage"
-    },
-    {
-        name = "DamageEffectColor_G",
-        offset = 0xBC, 
-        type = gg.TYPE_FLOAT,
-        namespace = MOB_NAMESPACE,
-        description = "Warna Green efek damage"
-    },
-    {
-        name = "DamageEffectColor_B",
-        offset = 0xC0,
-        type = gg.TYPE_FLOAT,
-        namespace = MOB_NAMESPACE,
-        description = "Warna Blue efek damage"
-    },
-    {
-        name = "DeadSinkSpeed",
-        offset = 0xE0,
-        type = gg.TYPE_FLOAT,
-        namespace = MOB_NAMESPACE,
-        description = "Kecepatan sink karakter mati"
-    }
-}
-
-local PROTEGE_FIELDS = {
-    {
-        name = "DamageEffectSetColor",
-        offset = 0x84,
-        type = gg.TYPE_BOOL,
-        namespace = PROTEGE_NAMESPACE,
-        description = "Aktifkan warna custom efek damage (Protege)"
-    },
-    {
-        name = "DamageEffectColor_R",
-        offset = 0x88,
-        type = gg.TYPE_FLOAT,
-        namespace = PROTEGE_NAMESPACE,
-        description = "Warna Red efek damage (Protege)"
-    },
-    {
-        name = "DamageEffectColor_G",
-        offset = 0x8C,
-        type = gg.TYPE_FLOAT,
-        namespace = PROTEGE_NAMESPACE,
-        description = "Warna Green efek damage (Protege)"
-    },
-    {
-        name = "DamageEffectColor_B",
-        offset = 0x90,
-        type = gg.TYPE_FLOAT,
-        namespace = PROTEGE_NAMESPACE,
-        description = "Warna Blue efek damage (Protege)"
-    }
-}
-
--- Method offsets untuk hooking
-local METHOD_OFFSETS = {
-    {
-        name = "GetDisableDamageMotionAtSkillBreak",
-        offset = 0x2F22A58,
-        type = gg.TYPE_DWORD,
-        namespace = MOB_NAMESPACE,
-        description = "Method untuk disable damage motion"
-    },
-    {
-        name = "GetDamageEffectPath", 
-        offset = 0x2E2E354,
-        type = gg.TYPE_DWORD,
-        namespace = MOB_NAMESPACE,
-        description = "Method untuk path efek damage"
-    }
-}
-
--- Gabungkan semua field
-local ALL_FIELDS = {}
-for _, field in ipairs(MOB_FIELDS) do table.insert(ALL_FIELDS, field) end
-for _, field in ipairs(PROTEGE_FIELDS) do table.insert(ALL_FIELDS, field) end
-for _, method in ipairs(METHOD_OFFSETS) do table.insert(ALL_FIELDS, method) end
-
--- Variabel global
-local original_values = {}
-local base_address = 0
-local current_multiplier = 1.0
-local is_active = false
-
--- Fungsi mendapatkan base address
-function get_base_address()
-    local ranges = gg.getRangesList(LIB_NAME)
-    if #ranges == 0 then
-        gg.alert("❌ " .. LIB_NAME .. " tidak ditemukan!")
-        os.exit()
-    end
-    return ranges[1].start
-end
-
--- Backup nilai original berdasarkan namespace
-function backup_namespace_values()
-    base_address = get_base_address()
-    original_values = {}
-    
-    for _, field in ipairs(ALL_FIELDS) do
-        local success, result = pcall(function()
-            return gg.getValues({{address = base_address + field.offset, flags = field.type}})[1].value
-        end)
-        
-        if success then
-            original_values[field.name] = {
-                address = base_address + field.offset,
-                value = result,
-                flags = field.type,
-                namespace = field.namespace,
-                description = field.description
-            }
-        end
-    end
-    
-    gg.toast("✅ Backup berhasil: " .. #ALL_FIELDS .. " field")
-end
-
--- Menu untuk memilih field berdasarkan namespace
-function select_field_menu()
-    local menu_options = {}
-    local field_map = {}
-    
-    -- Group oleh namespace
-    local namespace_groups = {
-        [MOB_NAMESPACE] = {},
-        [PROTEGE_NAMESPACE] = {},
-        ["METHODS"] = {}
-    }
-    
-    for _, field in ipairs(ALL_FIELDS) do
-        local group = field.namespace
-        if field.name:find("Get") then group = "METHODS" end
-        
-        local menu_text = "🎯 " .. field.name
-        if field.namespace == PROTEGE_NAMESPACE then
-            menu_text = menu_text .. " (Protege)"
-        end
-        
-        table.insert(namespace_groups[group], {
-            text = menu_text,
-            field = field
-        })
-    end
-    
-    -- Build menu options
-    table.insert(menu_options, "📁 " .. MOB_NAMESPACE)
-    for _, item in ipairs(namespace_groups[MOB_NAMESPACE]) do
-        table.insert(menu_options, "   • " .. item.text)
-        field_map[#menu_options] = item.field
-    end
-    
-    table.insert(menu_options, "📁 " .. PROTEGE_NAMESPACE)
-    for _, item in ipairs(namespace_groups[PROTEGE_NAMESPACE]) do
-        table.insert(menu_options, "   • " .. item.text)
-        field_map[#menu_options] = item.field
-    end
-    
-    table.insert(menu_options, "📁 METHODS")
-    for _, item in ipairs(namespace_groups["METHODS"]) do
-        table.insert(menu_options, "   • " .. item.text)
-        field_map[#menu_options] = item.field
-    end
-    
-    table.insert(menu_options, "🔙 Kembali")
-    
-    local choice = gg.choice(menu_options, nil, "🎮 PILIH FIELD UNTUK MULTIPLIER\nNamespace-aware Selection")
-    
-    if choice == nil or choice == #menu_options then
-        return nil
-    end
-    
-    return field_map[choice]
-end
-
--- Apply multiplier ke field tertentu
-function apply_field_multiplier(field, multiplier)
-    if not original_values[field.name] then
-        gg.alert("❌ Field " .. field.name .. " belum di-backup!")
-        return false
-    end
-    
-    local original_value = original_values[field.name].value
-    local new_value = original_value
-    
-    if field.type == gg.TYPE_FLOAT or field.type == gg.TYPE_DWORD then
-        new_value = original_value * multiplier
-    elseif field.type == gg.TYPE_BOOL then
-        new_value = 1  -- Force true untuk boolean
-    end
-    
-    gg.setValues({{
-        address = original_values[field.name].address,
-        value = new_value,
-        flags = field.type
-    }})
-    
-    gg.toast("✅ " .. field.name .. " di-set ke: " .. new_value)
-    return true
-end
-
--- Menu multiplier untuk field tertentu
-function field_multiplier_menu(selected_field)
-    while true do
-        local menu_options = {
-            "⚡ Multiplier x2 - " .. selected_field.name,
-            "⚡ Multiplier x5 - " .. selected_field.name,
-            "⚡ Multiplier x10 - " .. selected_field.name,
-            "🔧 Custom Multiplier",
-            "↩️ Kembali ke nilai original",
-            "🔙 Kembali ke menu utama"
-        }
-        
-        local choice = gg.choice(menu_options, nil, "🎮 MULTIPLIER UNTUK: " .. selected_field.name .. 
-            "\nNamespace: " .. selected_field.namespace ..
-            "\nDeskripsi: " .. selected_field.description)
-        
-        if choice == nil then break end
-        
-        if choice == 1 then
-            apply_field_multiplier(selected_field, 2.0)
-        elseif choice == 2 then
-            apply_field_multiplier(selected_field, 5.0)
-        elseif choice == 3 then
-            apply_field_multiplier(selected_field, 10.0)
-        elseif choice == 4 then
-            local custom = gg.prompt("Masukkan custom multiplier:", {1.0}, {"number"})
-            if custom and custom[1] then
-                apply_field_multiplier(selected_field, custom[1])
-            end
-        elseif choice == 5 then
-            gg.setValues({{
-                address = original_values[selected_field.name].address,
-                value = original_values[selected_field.name].value,
-                flags = selected_field.type
-            }})
-            gg.toast("✅ " .. selected_field.name .. " dikembalikan ke original")
-        elseif choice == 6 then
-            break
-        end
-        
-        gg.sleep(500)
-    end
-end
-
--- Tampilkan info field yang available
-function show_field_info()
-    local info_text = "📊 FIELD INFORMATION:\n\n"
-    
-    info_text = info_text .. "📁 " .. MOB_NAMESPACE .. ":\n"
-    for _, field in ipairs(MOB_FIELDS) do
-        info_text = info_text .. "• " .. field.name .. " (" .. field.description .. ")\n"
-    end
-    
-    info_text = info_text .. "\n📁 " .. PROTEGE_NAMESPACE .. ":\n"
-    for _, field in ipairs(PROTEGE_FIELDS) do
-        info_text = info_text .. "• " .. field.name .. " (" .. field.description .. ")\n"
-    end
-    
-    info_text = info_text .. "\n⚙️ METHODS:\n"
-    for _, method in ipairs(METHOD_OFFSETS) do
-        info_text = info_text .. "• " .. method.name .. " (" .. method.description .. ")\n"
-    end
-    
-    gg.alert(info_text)
-end
-
--- Revert semua field ke original
-function revert_all_fields()
-    for name, data in pairs(original_values) do
-        gg.setValues({{
-            address = data.address,
-            value = data.value,
-            flags = data.flags
-        }})
-    end
-    gg.toast("✅ Semua field dikembalikan ke nilai original")
-end
-
--- Main menu dengan pilihan berdasarkan namespace
-function namespace_based_menu()
-    while true do
-        local menu_options = {
-            "🔹 Backup Semua Field (" .. #ALL_FIELDS .. " field)",
-            "🎯 Pilih Field untuk Multiplier",
-            "⚡ Quick Multiplier - DisableDamageMotion",
-            "⚡ Quick Multiplier - DamageEffectColor", 
-            "📊 Info Field yang Tersedia",
-            "↩️ Revert Semua ke Original",
-            "❌ Keluar"
-        }
-        
-        local choice = gg.choice(menu_options, nil, "🎮 NAMESPACE-BASED DAMAGE MULTIPLIER\n" ..
-            "Mob Fields: " .. #MOB_FIELDS .. " | Protege Fields: " .. #PROTEGE_FIELDS)
-        
-        if choice == nil then break end
-        
-        if choice == 1 then
-            backup_namespace_values()
-        elseif choice == 2 then
-            local selected_field = select_field_menu()
-            if selected_field then
-                field_multiplier_menu(selected_field)
-            end
-        elseif choice == 3 then
-            -- Quick multiplier untuk DisableDamageMotion
-            local field = MOB_FIELDS[1]  -- DisableDamageMotionAtSkillBreak
-            if original_values[field.name] then
-                apply_field_multiplier(field, 1)  -- Set ke true
-                gg.alert("✅ DisableDamageMotion diaktifkan!\nIni mungkin meningkatkan damage output")
-            end
-        elseif choice == 4 then
-            -- Quick multiplier untuk DamageEffectColor
-            local field = MOB_FIELDS[3]  -- DamageEffectColor_R
-            if original_values[field.name] then
-                apply_field_multiplier(field, 2.0)
-                gg.toast("✅ Damage effect color di-enhanced")
-            end
-        elseif choice == 5 then
-            show_field_info()
-        elseif choice == 6 then
-            revert_all_fields()
-        elseif choice == 7 then
-            break
-        end
-    end
-end
-
--- Inisialisasi
-gg.toast("🎮 Namespace-Based Damage Multiplier Loaded")
-gg.alert("⚠️  PERHATIAN:\n" ..
-    "Script ini mengacu pada struktur namespace yang benar:\n" ..
-    "• " .. MOB_NAMESPACE .. ": " .. #MOB_FIELDS .. " field\n" ..
-    "• " .. PROTEGE_NAMESPACE .. ": " .. #PROTEGE_FIELDS .. " field\n\n" ..
-    "Selalu backup terlebih dahulu!")
-
--- Jalankan main menu
-namespace_based_menu()
-
--- Auto-revert on exit
-function onExit()
-    revert_all_fields()
-    gg.toast("🔄 Semua perubahan direvert otomatis")
-end
-
-gg.registerExitHandler(onExit)    },
-    {
-        name = "DamageEffectColor_G",
-        offset = 0xBC, 
-        type = gg.TYPE_FLOAT,
-        namespace = MOB_NAMESPACE,
-        description = "Warna Green efek damage"
-    },
-    {
-        name = "DamageEffectColor_B",
-        offset = 0xC0,
-        type = gg.TYPE_FLOAT,
-        namespace = MOB_NAMESPACE,
-        description = "Warna Blue efek damage"
-    },
-    {
-        name = "DeadSinkSpeed",
-        offset = 0xE0,
-        type = gg.TYPE_FLOAT,
-        namespace = MOB_NAMESPACE,
-        description = "Kecepatan sink karakter mati"
-    }
-}
-
-local PROTEGE_FIELDS = {
-    {
-        name = "DamageEffectSetColor",
-        offset = 0x84,
-        type = gg.TYPE_BOOL,
-        namespace = PROTEGE_NAMESPACE,
-        description = "Aktifkan warna custom efek damage (Protege)"
-    },
-    {
-        name = "DamageEffectColor_R",
-        offset = 0x88,
-        type = gg.TYPE_FLOAT,
-        namespace = PROTEGE_NAMESPACE,
-        description = "Warna Red efek damage (Protege)"
-    },
-    {
-        name = "DamageEffectColor_G",
-        offset = 0x8C,
-        type = gg.TYPE_FLOAT,
-        namespace = PROTEGE_NAMESPACE,
-        description = "Warna Green efek damage (Protege)"
-    },
-    {
-        name = "DamageEffectColor_B",
-        offset = 0x90,
-        type = gg.TYPE_FLOAT,
-        namespace = PROTEGE_NAMESPACE,
-        description = "Warna Blue efek damage (Protege)"
-    }
-}
-
--- Method offsets untuk hooking
-local METHOD_OFFSETS = {
-    {
-        name = "GetDisableDamageMotionAtSkillBreak",
-        offset = 0x2F22A58,
-        type = gg.TYPE_DWORD,
-        namespace = MOB_NAMESPACE,
-        description = "Method untuk disable damage motion"
-    },
-    {
-        name = "GetDamageEffectPath", 
-        offset = 0x2E2E354,
-        type = gg.TYPE_DWORD,
-        namespace = MOB_NAMESPACE,
-        description = "Method untuk path efek damage"
-    }
-}
-
--- Gabungkan semua field
-local ALL_FIELDS = {}
-for _, field in ipairs(MOB_FIELDS) do table.insert(ALL_FIELDS, field) end
-for _, field in ipairs(PROTEGE_FIELDS) do table.insert(ALL_FIELDS, field) end
-for _, method in ipairs(METHOD_OFFSETS) do table.insert(ALL_FIELDS, method) end
-
--- Variabel global
-local original_values = {}
-local base_address = 0
-local current_multiplier = 1.0
-local is_active = false
-
--- Fungsi mendapatkan base address
-function get_base_address()
-    local ranges = gg.getRangesList(LIB_NAME)
-    if #ranges == 0 then
-        gg.alert("❌ " .. LIB_NAME .. " tidak ditemukan!")
-        os.exit()
-    end
-    return ranges[1].start
-end
-
--- Backup nilai original berdasarkan namespace
-function backup_namespace_values()
-    base_address = get_base_address()
-    original_values = {}
-    
-    for _, field in ipairs(ALL_FIELDS) do
-        local success, result = pcall(function()
-            return gg.getValues({{address = base_address + field.offset, flags = field.type}})[1].value
-        end)
-        
-        if success then
-            original_values[field.name] = {
-                address = base_address + field.offset,
-                value = result,
-                flags = field.type,
-                namespace = field.namespace,
-                description = field.description
-            }
-        end
-    end
-    
-    gg.toast("✅ Backup berhasil: " .. #ALL_FIELDS .. " field")
-end
-
--- Menu untuk memilih field berdasarkan namespace
-function select_field_menu()
-    local menu_options = {}
-    local field_map = {}
-    
-    -- Group oleh namespace
-    local namespace_groups = {
-        [MOB_NAMESPACE] = {},
-        [PROTEGE_NAMESPACE] = {},
-        ["METHODS"] = {}
-    }
-    
-    for _, field in ipairs(ALL_FIELDS) do
-        local group = field.namespace
-        if field.name:find("Get") then group = "METHODS" end
-        
-        local menu_text = "🎯 " .. field.name
-        if field.namespace == PROTEGE_NAMESPACE then
-            menu_text = menu_text .. " (Protege)"
-        end
-        
-        table.insert(namespace_groups[group], {
-            text = menu_text,
-            field = field
-        })
-    end
-    
-    -- Build menu options
-    table.insert(menu_options, "📁 " .. MOB_NAMESPACE)
-    for _, item in ipairs(namespace_groups[MOB_NAMESPACE]) do
-        table.insert(menu_options, "   • " .. item.text)
-        field_map[#menu_options] = item.field
-    end
-    
-    table.insert(menu_options, "📁 " .. PROTEGE_NAMESPACE)
-    for _, item in ipairs(namespace_groups[PROTEGE_NAMESPACE]) do
-        table.insert(menu_options, "   • " .. item.text)
-        field_map[#menu_options] = item.field
-    end
-    
-    table.insert(menu_options, "📁 METHODS")
-    for _, item in ipairs(namespace_groups["METHODS"]) do
-        table.insert(menu_options, "   • " .. item.text)
-        field_map[#menu_options] = item.field
-    end
-    
-    table.insert(menu_options, "🔙 Kembali")
-    
-    local choice = gg.choice(menu_options, nil, "🎮 PILIH FIELD UNTUK MULTIPLIER\nNamespace-aware Selection")
-    
-    if choice == nil or choice == #menu_options then
-        return nil
-    end
-    
-    return field_map[choice]
-end
-
--- Apply multiplier ke field tertentu
-function apply_field_multiplier(field, multiplier)
-    if not original_values[field.name] then
-        gg.alert("❌ Field " .. field.name .. " belum di-backup!")
-        return false
-    end
-    
-    local original_value = original_values[field.name].value
-    local new_value = original_value
-    
-    if field.type == gg.TYPE_FLOAT or field.type == gg.TYPE_DWORD then
-        new_value = original_value * multiplier
-    elseif field.type == gg.TYPE_BOOL then
-        new_value = 1  -- Force true untuk boolean
-    end
-    
-    gg.setValues({{
-        address = original_values[field.name].address,
-        value = new_value,
-        flags = field.type
-    }})
-    
-    gg.toast("✅ " .. field.name .. " di-set ke: " .. new_value)
-    return true
-    end
--- Menu multiplier untuk field tertentu
-function field_multiplier_menu(selected_field)
-    while true do
-        local menu_options = {
-            "⚡ Multiplier x2 - " .. selected_field.name,
-            "⚡ Multiplier x5 - " .. selected_field.name,
-            "⚡ Multiplier x10 - " .. selected_field.name,
-            "🔧 Custom Multiplier",
-            "↩️ Kembali ke nilai original",
-            "🔙 Kembali ke menu utama"
-        }
-        
-        local choice = gg.choice(menu_options, nil, "🎮 MULTIPLIER UNTUK: " .. selected_field.name .. 
-            "\nNamespace: " .. selected_field.namespace ..
-            "\nDeskripsi: " .. selected_field.description)
-        
-        if choice == nil then break end
-        
-        if choice == 1 then
-            apply_field_multiplier(selected_field, 2.0)
-        elseif choice == 2 then
-            apply_field_multiplier(selected_field, 5.0)
-        elseif choice == 3 then
-            apply_field_multiplier(selected_field, 10.0)
-        elseif choice == 4 then
-            local custom = gg.prompt("Masukkan custom multiplier:", {1.0}, {"number"})
-            if custom and custom[1] then
-                apply_field_multiplier(selected_field, custom[1])
-            end
-        elseif choice == 5 then
-            gg.setValues({{
-                address = original_values[selected_field.name].address,
-                value = original_values[selected_field.name].value,
-                flags = selected_field.type
-            }})
-            gg.toast("✅ " .. selected_field.name .. " dikembalikan ke original")
-        elseif choice == 6 then
-            break
-        end
-        
-        gg.sleep(500)
-    end
-end
-
--- Main menu dengan pilihan berdasarkan namespace
-function namespace_based_menu()
-    while true do
-        local menu_options = {
-            "🔹 Backup Semua Field (" .. #ALL_FIELDS .. " field)",
-            "🎯 Pilih Field untuk Multiplier",
-            "⚡ Quick Multiplier - DisableDamageMotion",
-            "⚡ Quick Multiplier - DamageEffectColor", 
-            "📊 Info Field yang Tersedia",
-            "↩️ Revert Semua ke Original",
-            "❌ Keluar"
-        }
-        
-        local choice = gg.choice(menu_options, nil, "🎮 NAMESPACE-BASED DAMAGE MULTIPLIER\n" ..
-            "Mob Fields: " .. #MOB_FIELDS .. " | Protege Fields: " .. #PROTEGE_FIELDS)
-        
-        if choice == nil then break end
-        
-        if choice == 1 then
-            backup_namespace_values()
-        elseif choice == 2 then
-            local selected_field = select_field_menu()
-            if selected_field then
-                field_multiplier_menu(selected_field)
-            end
-        elseif choice == 3 then
-            -- Quick multiplier untuk DisableDamageMotion
-            local field = MOB_FIELDS[1]  -- DisableDamageMotionAtSkillBreak
-            if original_values[field.name] then
-                apply_field_multiplier(field, 1)  -- Set ke true
-                gg.alert("✅ DisableDamageMotion diaktifkan!\nIni mungkin meningkatkan damage output")
-            end
-        elseif choice == 4 then
-            -- Quick multiplier untuk DamageEffectColor
-            local field = MOB_FIELDS[3]  -- DamageEffectColor_R
-            if original_values[field.name] then
-                apply_field_multiplier(field, 2.0)
-                gg.toast("✅ Damage effect color di-enhanced")
-            end
-        elseif choice == 5 then
-            show_field_info()
-        elseif choice == 6 then
-            revert_all_fields()
-        elseif choice == 7 then
-            break
-        end
-    end
-end
-
--- Tampilkan info field yang available
-function show_field_info()
-    local info_text = "📊 FIELD INFORMATION:\n\n"
-    
-    info_text = info_text .. "📁 " .. MOB_NAMESPACE .. ":\n"
-    for _, field in ipairs(MOB_FIELDS) do
-        info_text = info_text .. "• " .. field.name .. " (" .. field.description .. ")\n"
-    end
-    
-    info_text = info_text .. "\n📁 " .. PROTEGE_NAMESPACE .. ":\n"
-    for _, field in ipairs(PROTEGE_FIELDS) do
-        info_text = info_text .. "• " .. field.name .. " (" .. field.description .. ")\n"
-    end
-    
-    info_text = info_text .. "\n⚙️ METHODS:\n"
-    for _, method in ipairs(METHOD_OFFSETS) do
-        info_text = info_text .. "• " .. method.name .. " (" .. method.description .. ")\n"
-    end
-    
-    gg.alert(info_text)
-end
-
--- Revert semua field ke original
-function revert_all_fields()
-    for name, data in pairs(original_values) do
-        gg.setValues({{
-            address = data.address,
-            value = data.value,
-            flags = data.flags
-        }})
-    end
-    gg.toast("✅ Semua field dikembalikan ke nilai original")
-end
-
--- Inisialisasi
-gg.toast("🎮 Namespace-Based Damage Multiplier Loaded")
-gg.alert("⚠️  PERHATIAN:\n" ..
-    "Script ini mengacu pada struktur namespace yang benar:\n" ..
-    "• " .. MOB_NAMESPACE .. ": " .. #MOB_FIELDS .. " field\n" ..
-    "• " .. PROTEGE_NAMESPACE .. ": " .. #PROTEGE_FIELDS .. " field\n\n" ..
-    "Selalu backup terlebih dahulu!")
-
--- Jalankan main menu
-namespace_based_menu()
-
--- Auto-revert on exit
-function onExit()
-    revert_all_fields()
-    gg.toast("🔄 Semua perubahan direvert otomatis")
-end
-
-gg.registerExitHandler(onExit)    },
-    {
-        name = "DamageEffectColor_G",
-        offset = 0xBC, 
-        type = gg.TYPE_FLOAT,
-        namespace = MOB_NAMESPACE,
-        description = "Warna Green efek damage"
-    },
-    {
-        name = "DamageEffectColor_B",
-        offset = 0xC0,
-        type = gg.TYPE_FLOAT,
-        namespace = MOB_NAMESPACE,
-        description = "Warna Blue efek damage"
-    },
-    {
-        name = "DeadSinkSpeed",
-        offset = 0xE0,
-        type = gg.TYPE_FLOAT,
-        namespace = MOB_NAMESPACE,
-        description = "Kecepatan sink karakter mati"
-    }
-}
-
-local PROTEGE_FIELDS = {
-    {
-        name = "DamageEffectSetColor",
-        offset = 0x84,
-        type = gg.TYPE_BOOL,
-        namespace = PROTEGE_NAMESPACE,
-        description = "Aktifkan warna custom efek damage (Protege)"
-    },
-    {
-        name = "DamageEffectColor_R",
-        offset = 0x88,
-        type = gg.TYPE_FLOAT,
-        namespace = PROTEGE_NAMESPACE,
-        description = "Warna Red efek damage (Protege)"
-    },
-    {
-        name = "DamageEffectColor_G",
-        offset = 0x8C,
-        type = gg.TYPE_FLOAT,
-        namespace = PROTEGE_NAMESPACE,
-        description = "Warna Green efek damage (Protege)"
-    },
-    {
-        name = "DamageEffectColor_B",
-        offset = 0x90,
-        type = gg.TYPE_FLOAT,
-        namespace = PROTEGE_NAMESPACE,
-        description = "Warna Blue efek damage (Protege)"
-    }
-}
-
--- Method offsets untuk hooking
-local METHOD_OFFSETS = {
-    {
-        name = "GetDisableDamageMotionAtSkillBreak",
-        offset = 0x2F22A58,
-        type = gg.TYPE_DWORD,
-        namespace = MOB_NAMESPACE,
-        description = "Method untuk disable damage motion"
-    },
-    {
-        name = "GetDamageEffectPath", 
-        offset = 0x2E2E354,
-        type = gg.TYPE_DWORD,
-        namespace = MOB_NAMESPACE,
-        description = "Method untuk path efek damage"
-    }
-}
-
--- Gabungkan semua field
-local ALL_FIELDS = {}
-for _, field in ipairs(MOB_FIELDS) do table.insert(ALL_FIELDS, field) end
-for _, field in ipairs(PROTEGE_FIELDS) do table.insert(ALL_FIELDS, field) end
-for _, method in ipairs(METHOD_OFFSETS) do table.insert(ALL_FIELDS, method) end
-
--- Variabel global
-local original_values = {}
-local base_address = 0
-local current_multiplier = 1.0
-local is_active = false
-
--- Fungsi mendapatkan base address
-function get_base_address()
-    local ranges = gg.getRangesList(LIB_NAME)
-    if #ranges == 0 then
-        gg.alert("❌ " .. LIB_NAME .. " tidak ditemukan!")
-        os.exit()
-    end
-    return ranges[1].start
-end
-
--- Backup nilai original berdasarkan namespace
-function backup_namespace_values()
-    base_address = get_base_address()
-    original_values = {}
-    
-    for _, field in ipairs(ALL_FIELDS) do
-        local success, result = pcall(function()
-            return gg.getValues({{address = base_address + field.offset, flags = field.type}})[1].value
-        end)
-        
-        if success then
-            original_values[field.name] = {
-                address = base_address + field.offset,
-                value = result,
-                flags = field.type,
-                namespace = field.namespace,
-                description = field.description
-            }
-        end
-    end
-    
-    gg.toast("✅ Backup berhasil: " .. #ALL_FIELDS .. " field")
-end
-
--- Menu untuk memilih field berdasarkan namespace
-function select_field_menu()
-    local menu_options = {}
-    local field_map = {}
-    
-    -- Group oleh namespace
-    local namespace_groups = {
-        [MOB_NAMESPACE] = {},
-        [PROTEGE_NAMESPACE] = {},
-        ["METHODS"] = {}
-    }
-    
-    for _, field in ipairs(ALL_FIELDS) do
-        local group = field.namespace
-        if field.name:find("Get") then group = "METHODS" end
-        
-        local menu_text = "🎯 " .. field.name
-        if field.namespace == PROTEGE_NAMESPACE then
-            menu_text = menu_text .. " (Protege)"
-        end
-        
-        table.insert(namespace_groups[group], {
-            text = menu_text,
-            field = field
-        })
-    end
-    
-    -- Build menu options
-    table.insert(menu_options, "📁 " .. MOB_NAMESPACE)
-    for _, item in ipairs(namespace_groups[MOB_NAMESPACE]) do
-        table.insert(menu_options, "   • " .. item.text)
-        field_map[#menu_options] = item.field
-    end
-    
-    table.insert(menu_options, "📁 " .. PROTEGE_NAMESPACE)
-    for _, item in ipairs(namespace_groups[PROTEGE_NAMESPACE]) do
-        table.insert(menu_options, "   • " .. item.text)
-        field_map[#menu_options] = item.field
-    end
-    
-    table.insert(menu_options, "📁 METHODS")
-    for _, item in ipairs(namespace_groups["METHODS"]) do
-        table.insert(menu_options, "   • " .. item.text)
-        field_map[#menu_options] = item.field
-    end
-    
-    table.insert(menu_options, "🔙 Kembali")
-    
-    local choice = gg.choice(menu_options, nil, "🎮 PILIH FIELD UNTUK MULTIPLIER\nNamespace-aware Selection")
-    
-    if choice == nil or choice == #menu_options then
-        return nil
-    end
-    
-    return field_map[choice]
-end
-
--- Apply multiplier ke field tertentu
-function apply_field_multiplier(field, multiplier)
-    if not original_values[field.name] then
-        gg.alert("❌ Field " .. field.name .. " belum di-backup!")
-        return false
-    end
-    
-    local original_value = original_values[field.name].value
-    local new_value = original_value
-    
-    if field.type == gg.TYPE_FLOAT or field.type == gg.TYPE_DWORD then
-        new_value = original_value * multiplier
-    elseif field.type == gg.TYPE_BOOL then
-        new_value = 1  -- Force true untuk boolean
-    end
-    
-    gg.setValues({{
-        address = original_values[field.name].address,
-        value = new_value,
-        flags = field.type
-    }})
-    
-    gg.toast("✅ " .. field.name .. " di-set ke: " .. new_value)
-    return true
-    end
--- Menu multiplier untuk field tertentu
-function field_multiplier_menu(selected_field)
-    while true do
-        local menu_options = {
-            "⚡ Multiplier x2 - " .. selected_field.name,
-            "⚡ Multiplier x5 - " .. selected_field.name,
-            "⚡ Multiplier x10 - " .. selected_field.name,
-            "🔧 Custom Multiplier",
-            "↩️ Kembali ke nilai original",
-            "🔙 Kembali ke menu utama"
-        }
-        
-        local choice = gg.choice(menu_options, nil, "🎮 MULTIPLIER UNTUK: " .. selected_field.name .. 
-            "\nNamespace: " .. selected_field.namespace ..
-            "\nDeskripsi: " .. selected_field.description)
-        
-        if choice == nil then break end
-        
-        if choice == 1 then
-            apply_field_multiplier(selected_field, 2.0)
-        elseif choice == 2 then
-            apply_field_multiplier(selected_field, 5.0)
-        elseif choice == 3 then
-            apply_field_multiplier(selected_field, 10.0)
-        elseif choice == 4 then
-            local custom = gg.prompt("Masukkan custom multiplier:", {1.0}, {"number"})
-            if custom and custom[1] then
-                apply_field_multiplier(selected_field, custom[1])
-            end
-        elseif choice == 5 then
-            gg.setValues({{
-                address = original_values[selected_field.name].address,
-                value = original_values[selected_field.name].value,
-                flags = selected_field.type
-            }})
-            gg.toast("✅ " .. selected_field.name .. " dikembalikan ke original")
-        elseif choice == 6 then
-            break
-        end
-        
-        gg.sleep(500)
-    end
-end
-
--- Main menu dengan pilihan berdasarkan namespace
-function namespace_based_menu()
-    while true do
-        local menu_options = {
-            "🔹 Backup Semua Field (" .. #ALL_FIELDS .. " field)",
-            "🎯 Pilih Field untuk Multiplier",
-            "⚡ Quick Multiplier - DisableDamageMotion",
-            "⚡ Quick Multiplier - DamageEffectColor", 
-            "📊 Info Field yang Tersedia",
-            "↩️ Revert Semua ke Original",
-            "❌ Keluar"
-        }
-        
-        local choice = gg.choice(menu_options, nil, "🎮 NAMESPACE-BASED DAMAGE MULTIPLIER\n" ..
-            "Mob Fields: " .. #MOB_FIELDS .. " | Protege Fields: " .. #PROTEGE_FIELDS)
-        
-        if choice == nil then break end
-        
-        if choice == 1 then
-            backup_namespace_values()
-        elseif choice == 2 then
-            local selected_field = select_field_menu()
-            if selected_field then
-                field_multiplier_menu(selected_field)
-            end
-        elseif choice == 3 then
-            -- Quick multiplier untuk DisableDamageMotion
-            local field = MOB_FIELDS[1]  -- DisableDamageMotionAtSkillBreak
-            if original_values[field.name] then
-                apply_field_multiplier(field, 1)  -- Set ke true
-                gg.alert("✅ DisableDamageMotion diaktifkan!\nIni mungkin meningkatkan damage output")
-            end
-        elseif choice == 4 then
-            -- Quick multiplier untuk DamageEffectColor
-            local field = MOB_FIELDS[3]  -- DamageEffectColor_R
-            if original_values[field.name] then
-                apply_field_multiplier(field, 2.0)
-                gg.toast("✅ Damage effect color di-enhanced")
-            end
-        elseif choice == 5 then
-            show_field_info()
-        elseif choice == 6 then
-            revert_all_fields()
-        elseif choice == 7 then
-            break
-        end
-    end
-end
-
--- Tampilkan info field yang available
-function show_field_info()
-    local info_text = "📊 FIELD INFORMATION:\n\n"
-    
-    info_text = info_text .. "📁 " .. MOB_NAMESPACE .. ":\n"
-    for _, field in ipairs(MOB_FIELDS) do
-        info_text = info_text .. "• " .. field.name .. " (" .. field.description .. ")\n"
-    end
-    
-    info_text = info_text .. "\n📁 " .. PROTEGE_NAMESPACE .. ":\n"
-    for _, field in ipairs(PROTEGE_FIELDS) do
-        info_text = info_text .. "• " .. field.name .. " (" .. field.description .. ")\n"
-    end
-    
-    info_text = info_text .. "\n⚙️ METHODS:\n"
-    for _, method in ipairs(METHOD_OFFSETS) do
-        info_text = info_text .. "• " .. method.name .. " (" .. method.description .. ")\n"
-    end
-    
-    gg.alert(info_text)
-end
-
--- Revert semua field ke original
-function revert_all_fields()
-    for name, data in pairs(original_values) do
-        gg.setValues({{
-            address = data.address,
-            value = data.value,
-            flags = data.flags
-        }})
-    end
-    gg.toast("✅ Semua field dikembalikan ke nilai original")
-end
-
--- Inisialisasi
-gg.toast("🎮 Namespace-Based Damage Multiplier Loaded")
-gg.alert("⚠️  PERHATIAN:\n" ..
-    "Script ini mengacu pada struktur namespace yang benar:\n" ..
-    "• " .. MOB_NAMESPACE .. ": " .. #MOB_FIELDS .. " field\n" ..
-    "• " .. PROTEGE_NAMESPACE .. ": " .. #PROTEGE_FIELDS .. " field\n\n" ..
-    "Selalu backup terlebih dahulu!")
-
--- Jalankan main menu
-namespace_based_menu()
-
--- Auto-revert on exit
-function onExit()
-    revert_all_fields()
-    gg.toast("🔄 Semua perubahan direvert otomatis")
-end
-
-gg.registerExitHandler(onExit)    },
-    {
-        name = "DamageEffectColor_G",
-        offset = 0xBC, 
-        type = gg.TYPE_FLOAT,
-        namespace = MOB_NAMESPACE,
-        description = "Warna Green efek damage"
-    },
-    {
-        name = "DamageEffectColor_B",
-        offset = 0xC0,
-        type = gg.TYPE_FLOAT,
-        namespace = MOB_NAMESPACE,
-        description = "Warna Blue efek damage"
-    },
-    {
-        name = "DeadSinkSpeed",
-        offset = 0xE0,
-        type = gg.TYPE_FLOAT,
-        namespace = MOB_NAMESPACE,
-        description = "Kecepatan sink karakter mati"
-    }
-}
-
-local PROTEGE_FIELDS = {
-    {
-        name = "DamageEffectSetColor",
-        offset = 0x84,
-        type = gg.TYPE_BOOL,
-        namespace = PROTEGE_NAMESPACE,
-        description = "Aktifkan warna custom efek damage (Protege)"
-    },
-    {
-        name = "DamageEffectColor_R",
-        offset = 0x88,
-        type = gg.TYPE_FLOAT,
-        namespace = PROTEGE_NAMESPACE,
-        description = "Warna Red efek damage (Protege)"
-    },
-    {
-        name = "DamageEffectColor_G",
-        offset = 0x8C,
-        type = gg.TYPE_FLOAT,
-        namespace = PROTEGE_NAMESPACE,
-        description = "Warna Green efek damage (Protege)"
-    },
-    {
-        name = "DamageEffectColor_B",
-        offset = 0x90,
-        type = gg.TYPE_FLOAT,
-        namespace = PROTEGE_NAMESPACE,
-        description = "Warna Blue efek damage (Protege)"
-    }
-}
-
--- Method offsets untuk hooking
-local METHOD_OFFSETS = {
-    {
-        name = "GetDisableDamageMotionAtSkillBreak",
-        offset = 0x2F22A58,
-        type = gg.TYPE_DWORD,
-        namespace = MOB_NAMESPACE,
-        description = "Method untuk disable damage motion"
-    },
-    {
-        name = "GetDamageEffectPath", 
-        offset = 0x2E2E354,
-        type = gg.TYPE_DWORD,
-        namespace = MOB_NAMESPACE,
-        description = "Method untuk path efek damage"
-    }
-}
-
--- Gabungkan semua field
-local ALL_FIELDS = {}
-for _, field in ipairs(MOB_FIELDS) do table.insert(ALL_FIELDS, field) end
-for _, field in ipairs(PROTEGE_FIELDS) do table.insert(ALL_FIELDS, field) end
-for _, method in ipairs(METHOD_OFFSETS) do table.insert(ALL_FIELDS, method) end
-
--- Variabel global
-local original_values = {}
-local base_address = 0
-local current_multiplier = 1.0
-local is_active = false
-
--- Fungsi mendapatkan base address
-function get_base_address()
-    local ranges = gg.getRangesList(LIB_NAME)
-    if #ranges == 0 then
-        gg.alert("❌ " .. LIB_NAME .. " tidak ditemukan!")
-        os.exit()
-    end
-    return ranges[1].start
-end
-
--- Backup nilai original berdasarkan namespace
-function backup_namespace_values()
-    base_address = get_base_address()
-    original_values = {}
-    
-    for _, field in ipairs(ALL_FIELDS) do
-        local success, result = pcall(function()
-            return gg.getValues({{address = base_address + field.offset, flags = field.type}})[1].value
-        end)
-        
-        if success then
-            original_values[field.name] = {
-                address = base_address + field.offset,
-                value = result,
-                flags = field.type,
-                namespace = field.namespace,
-                description = field.description
-            }
-        end
-    end
-    
-    gg.toast("✅ Backup berhasil: " .. #ALL_FIELDS .. " field")
-end
-
--- Menu untuk memilih field berdasarkan namespace
-function select_field_menu()
-    local menu_options = {}
-    local field_map = {}
-    
-    -- Group oleh namespace
-    local namespace_groups = {
-        [MOB_NAMESPACE] = {},
-        [PROTEGE_NAMESPACE] = {},
-        ["METHODS"] = {}
-    }
-    
-    for _, field in ipairs(ALL_FIELDS) do
-        local group = field.namespace
-        if field.name:find("Get") then group = "METHODS" end
-        
-        local menu_text = "🎯 " .. field.name
-        if field.namespace == PROTEGE_NAMESPACE then
-            menu_text = menu_text .. " (Protege)"
-        end
-        
-        table.insert(namespace_groups[group], {
-            text = menu_text,
-            field = field
-        })
-    end
-    
-    -- Build menu options
-    table.insert(menu_options, "📁 " .. MOB_NAMESPACE)
-    for _, item in ipairs(namespace_groups[MOB_NAMESPACE]) do
-        table.insert(menu_options, "   • " .. item.text)
-        field_map[#menu_options] = item.field
-    end
-    
-    table.insert(menu_options, "📁 " .. PROTEGE_NAMESPACE)
-    for _, item in ipairs(namespace_groups[PROTEGE_NAMESPACE]) do
-        table.insert(menu_options, "   • " .. item.text)
-        field_map[#menu_options] = item.field
-    end
-    
-    table.insert(menu_options, "📁 METHODS")
-    for _, item in ipairs(namespace_groups["METHODS"]) do
-        table.insert(menu_options, "   • " .. item.text)
-        field_map[#menu_options] = item.field
-    end
-    
-    table.insert(menu_options, "🔙 Kembali")
-    
-    local choice = gg.choice(menu_options, nil, "🎮 PILIH FIELD UNTUK MULTIPLIER\nNamespace-aware Selection")
-    
-    if choice == nil or choice == #menu_options then
-        return nil
-    end
-    
-    return field_map[choice]
-end
-
--- Apply multiplier ke field tertentu
-function apply_field_multiplier(field, multiplier)
-    if not original_values[field.name] then
-        gg.alert("❌ Field " .. field.name .. " belum di-backup!")
-        return false
-    end
-    
-    local original_value = original_values[field.name].value
-    local new_value = original_value
-    
-    if field.type == gg.TYPE_FLOAT or field.type == gg.TYPE_DWORD then
-        new_value = original_value * multiplier
-    elseif field.type == gg.TYPE_BOOL then
-        new_value = 1  -- Force true untuk boolean
-    end
-    
-    gg.setValues({{
-        address = original_values[field.name].address,
-        value = new_value,
-        flags = field.type
-    }})
-    
-    gg.toast("✅ " .. field.name .. " di-set ke: " .. new_value)
-    return true
-}
-
--- Menu multiplier untuk field tertentu
-function field_multiplier_menu(selected_field)
-    while true do
-        local menu_options = {
-            "⚡ Multiplier x2 - " .. selected_field.name,
-            "⚡ Multiplier x5 - " .. selected_field.name,
-            "⚡ Multiplier x10 - " .. selected_field.name,
-            "🔧 Custom Multiplier",
-            "↩️ Kembali ke nilai original",
-            "🔙 Kembali ke menu utama"
-        }
-        
-        local choice = gg.choice(menu_options, nil, "🎮 MULTIPLIER UNTUK: " .. selected_field.name .. 
-            "\nNamespace: " .. selected_field.namespace ..
-            "\nDeskripsi: " .. selected_field.description)
-        
-        if choice == nil then break end
-        
-        if choice == 1 then
-            apply_field_multiplier(selected_field, 2.0)
-        elseif choice == 2 then
-            apply_field_multiplier(selected_field, 5.0)
-        elseif choice == 3 then
-            apply_field_multiplier(selected_field, 10.0)
-        elseif choice == 4 then
-            local custom = gg.prompt("Masukkan custom multiplier:", {1.0}, {"number"})
-            if custom and custom[1] then
-                apply_field_multiplier(selected_field, custom[1])
-            end
-        elseif choice == 5 then
-            gg.setValues({{
-                address = original_values[selected_field.name].address,
-                value = original_values[selected_field.name].value,
-                flags = selected_field.type
-            }})
-            gg.toast("✅ " .. selected_field.name .. " dikembalikan ke original")
-        elseif choice == 6 then
-            break
-        end
-        
-        gg.sleep(500)
-    end
-end
-
--- Main menu dengan pilihan berdasarkan namespace
-function namespace_based_menu()
-    while true do
-        local menu_options = {
-            "🔹 Backup Semua Field (" .. #ALL_FIELDS .. " field)",
-            "🎯 Pilih Field untuk Multiplier",
-            "⚡ Quick Multiplier - DisableDamageMotion",
-            "⚡ Quick Multiplier - DamageEffectColor", 
-            "📊 Info Field yang Tersedia",
-            "↩️ Revert Semua ke Original",
-            "❌ Keluar"
-        }
-        
-        local choice = gg.choice(menu_options, nil, "🎮 NAMESPACE-BASED DAMAGE MULTIPLIER\n" ..
-            "Mob Fields: " .. #MOB_FIELDS .. " | Protege Fields: " .. #PROTEGE_FIELDS)
-        
-        if choice == nil then break end
-        
-        if choice == 1 then
-            backup_namespace_values()
-        elseif choice == 2 then
-            local selected_field = select_field_menu()
-            if selected_field then
-                field_multiplier_menu(selected_field)
-            end
-        elseif choice == 3 then
-            -- Quick multiplier untuk DisableDamageMotion
-            local field = MOB_FIELDS[1]  -- DisableDamageMotionAtSkillBreak
-            if original_values[field.name] then
-                apply_field_multiplier(field, 1)  -- Set ke true
-                gg.alert("✅ DisableDamageMotion diaktifkan!\nIni mungkin meningkatkan damage output")
-            end
-        elseif choice == 4 then
-            -- Quick multiplier untuk DamageEffectColor
-            local field = MOB_FIELDS[3]  -- DamageEffectColor_R
-            if original_values[field.name] then
-                apply_field_multiplier(field, 2.0)
-                gg.toast("✅ Damage effect color di-enhanced")
-            end
-        elseif choice == 5 then
-            show_field_info()
-        elseif choice == 6 then
-            revert_all_fields()
-        elseif choice == 7 then
-            break
-        end
-    end
-end
-
--- Tampilkan info field yang available
-function show_field_info()
-    local info_text = "📊 FIELD INFORMATION:\n\n"
-    
-    info_text = info_text .. "📁 " .. MOB_NAMESPACE .. ":\n"
-    for _, field in ipairs(MOB_FIELDS) do
-        info_text = info_text .. "• " .. field.name .. " (" .. field.description .. ")\n"
-    end
-    
-    info_text = info_text .. "\n📁 " .. PROTEGE_NAMESPACE .. ":\n"
-    for _, field in ipairs(PROTEGE_FIELDS) do
-        info_text = info_text .. "• " .. field.name .. " (" .. field.description .. ")\n"
-    end
-    
-    info_text = info_text .. "\n⚙️ METHODS:\n"
-    for _, method in ipairs(METHOD_OFFSETS) do
-        info_text = info_text .. "• " .. method.name .. " (" .. method.description .. ")\n"
-    end
-    
-    gg.alert(info_text)
-end
-
--- Revert semua field ke original
-function revert_all_fields()
-    for name, data in pairs(original_values) do
-        gg.setValues({{
-            address = data.address,
-            value = data.value,
-            flags = data.flags
-        }})
-    end
-    gg.toast("✅ Semua field dikembalikan ke nilai original")
-end
-
--- Inisialisasi
-gg.toast("🎮 Namespace-Based Damage Multiplier Loaded")
-gg.alert("⚠️  PERHATIAN:\n" ..
-    "Script ini mengacu pada struktur namespace yang benar:\n" ..
-    "• " .. MOB_NAMESPACE .. ": " .. #MOB_FIELDS .. " field\n" ..
-    "• " .. PROTEGE_NAMESPACE .. ": " .. #PROTEGE_FIELDS .. " field\n\n" ..
-    "Selalu backup terlebih dahulu!")
-
--- Jalankan main menu
-namespace_based_menu()
-
--- Auto-revert on exit
-function onExit()
-    revert_all_fields()
-    gg.toast("🔄 Semua perubahan direvert otomatis")
-end
-
-gg.registerExitHandler(onExit)    if base_address == nil or base_address == 0 then
-        gg.alert("❌ ERROR: Base address tidak valid!")
-        os.exit()
-    end
-    
-    return base_address
-end
-
--- Fungsi backup nilai original dengan enhanced safety
-function backup_original_values()
-    local base = get_base_address()
-    
-    -- Backup semua nilai yang relevan
-    original_values = {
-        damage_motion = {
-            address = base + TARGET_OFFSETS.DAMAGE_MULTIPLIER,
-            original = gg.getValues({{address = base + TARGET_OFFSETS.DAMAGE_MULTIPLIER, flags = gg.TYPE_DWORD}})[1].value,
-            flags = gg.TYPE_DWORD
-        },
-        damage_effect = {
-            address = base + TARGET_OFFSETS.DAMAGE_EFFECT,
-            original = gg.getValues({{address = base + TARGET_OFFSETS.DAMAGE_EFFECT, flags = gg.TYPE_DWORD}})[1].value,
-            flags = gg.TYPE_DWORD
-        },
-        hp_setting = {
-            address = base + TARGET_OFFSETS.HP_SETTING,
-            original = gg.getValues({{address = base + TARGET_OFFSETS.HP_SETTING, flags = gg.TYPE_DWORD}})[1].value,
-            flags = gg.TYPE_DWORD
-        }
-    }
-    
-    gg.toast("✅ Backup nilai original berhasil")
-    return true
-end
-
--- Fungsi apply damage multiplier yang lebih aman
-function apply_damage_multiplier(multiplier)
-    if not safety_check() then
-        gg.alert("❌ Gagal safety check! Tidak dapat menerapkan multiplier.")
-        return false
-    end
-    
-    local base = get_base_address()
-    current_multiplier = multiplier
-    
-    -- Modifikasi bertahap dengan delay untuk hindari detection
-    gg.sleep(100)
-    
-    -- 1. Modifikasi damage motion setting (nilai kecil dulu)
-    gg.setValues({
-        {
-            address = original_values.damage_motion.address,
-            value = 1,
-            flags = gg.TYPE_DWORD
-        }
-    })
-    
-    gg.sleep(50)
-    
-    -- 2. Modifikasi damage effect
-    gg.setValues({
-        {
-            address = original_values.damage_effect.address,
-            value = 1,
-            flags = gg.TYPE_DWORD
-        }
-    })
-    
-    gg.sleep(50)
-    
-    -- 3. Modifikasi HP setting (opsional)
-    if not safe_mode then
-        gg.setValues({
-            {
-                address = original_values.hp_setting.address,
-                value = 9999,  -- Nilai HP tinggi
-                flags = gg.TYPE_DWORD
-            }
-        })
-    end
-    
-    is_active = true
-    gg.toast("✅ Damage Multiplier x" .. multiplier .. " diaktifkan")
-    return true
-end
-
--- Fungsi revert yang lebih comprehensive
-function revert_to_original()
-    if not original_values.damage_motion or not original_values.damage_effect then
-        gg.alert("❌ Backup nilai tidak ditemukan!")
-        return false
-    end
-    
-    -- Revert semua nilai ke original
-    gg.setValues({
-        {
-            address = original_values.damage_motion.address,
-            value = original_values.damage_motion.original,
-            flags = original_values.damage_motion.flags
-        },
-        {
-            address = original_values.damage_effect.address,
-            value = original_values.damage_effect.original,
-            flags = original_values.damage_effect.flags
-        }
-    })
-    
-    if original_values.hp_setting then
-        gg.setValues({
-            {
-                address = original_values.hp_setting.address,
-                value = original_values.hp_setting.original,
-                flags = original_values.hp_setting.flags
-            }
-        })
-    end
-    
-    is_active = false
-    current_multiplier = 1.0
-    gg.toast("✅ Revert ke nilai original berhasil")
-    return true
-end
-
--- Enhanced safety check
-function safety_check()
-    local base = get_base_address()
-    
-    -- Check jika base address valid
-    if base == 0 or base == nil then
-        return false
-    end
-    
-    -- Check nilai-nilai critical
-    local current_motion = gg.getValues({{address = base + TARGET_OFFSETS.DAMAGE_MULTIPLIER, flags = gg.TYPE_DWORD}})[1].value
-    local current_effect = gg.getValues({{address = base + TARGET_OFFSETS.DAMAGE_EFFECT, flags = gg.TYPE_DWORD}})[1].value
-    
-    -- Validasi nilai tidak extreme
-    if current_motion > 1000 or current_effect > 1000 then
-        gg.alert("⚠️  Nilai tidak normal terdeteksi!")
-        return false
-    end
-    
-    return true
-end
-
--- Fungsi test stability
-function test_stability()
-    gg.toast("🔍 Testing stability...")
-    gg.sleep(1000)
+-- Fungsi utama validasi game
+local function validateGame()
+    local currentPackage = gg.getTargetPackage() or "unknown"
     
-    if safety_check() then
-        gg.toast("✅ Stability test passed")
+    if currentPackage == TARGET_PACKAGE then
+        gg.toast("✅ Script berjalan di " .. TARGET_NAME)
         return true
     else
-        gg.toast("❌ Stability test failed")
+        gg.setVisible(false)
+        gg.alert("❌ Script tidak cocok untuk game ini!\n" ..
+                "➡️ Game yang dibutuhkan: " .. TARGET_NAME .. 
+                "\n➡️ Game saat ini: " .. currentPackage ..
+                "\n\n⚠️ Pastikan game yang benar sedang berjalan!")
+        os.exit()
         return false
     end
 end
 
--- Auto-repair function
-function auto_repair()
-    gg.alert("🛠️  Memulai auto-repair...")
+-- Fungsi untuk mendapatkan info game detail
+local function getGameInfo()
+    return {
+        package = gg.getTargetPackage() or "unknown",
+        pid = gg.getTargetInfo().pid or "unknown",
+        architecture = gg.getTargetInfo().x64 and "64-bit" or "32-bit"
+    }
+end
+
+-- Proteksi ekstra dengan multiple validation
+local function advancedValidation()
+    local gameInfo = getGameInfo()
     
-    -- Coba revert dulu
-    revert_to_original()
+    -- Validasi package name
+    if gameInfo.package ~= TARGET_PACKAGE then
+        return false, "Package name tidak cocok"
+    end
+    
+    -- Validasi tambahan bisa ditambahkan di sini
+    -- Contoh: check process name, signature, dll
+    
+    return true, "Validasi berhasil"
+end
+
+-- Main execution
+gg.setVisible(false)
+
+local isValid, message = advancedValidation()
+
+if isValid then
+    gg.toast("🎮 " .. TARGET_NAME .. " terdeteksi!")
     gg.sleep(1000)
     
-    -- Test stability
-    if test_stability() then
-        gg.alert("✅ Auto-repair berhasil!")
-        return true
-    else
-        gg.alert("❌ Auto-repair gagal! Coba restart game.")
-        return false
-    end
-end
-
--- Main menu dengan lebih banyak opsi
-function main_menu()
-    while true do
-        local menu_options = {
-            "🔹 Backup Nilai Original",
-            "⚡ Damage Multiplier x2",
-            "⚡ Damage Multiplier x5", 
-            "⚡ Damage Multiplier x10",
-            "🛡️  Safe Mode: " .. (safe_mode and "ON" or "OFF"),
-            "🔧 Auto-Repair",
-            "🔍 Status System",
-            "↩️  Revert ke Original",
-            "❌ Keluar"
-        }
-        
-        local choice = gg.choice(menu_options, nil, "🎮 ADVANCED DAMAGE MENU\nCurrent: x" .. current_multiplier)
-        
-        if choice == nil then break end
-        
-        if choice == 1 then
-            backup_original_values()
-        elseif choice == 2 then
-            apply_damage_multiplier(2.0)
-        elseif choice == 3 then
-            apply_damage_multiplier(5.0)
-        elseif choice == 4 then
-            apply_damage_multiplier(10.0)
-        elseif choice == 5 then
-            safe_mode = not safe_mode
-            gg.toast("Safe Mode: " .. (safe_mode and "ON" or "OFF"))
-        elseif choice == 6 then
-            auto_repair()
-        elseif choice == 7 then
-            show_status()
-        elseif choice == 8 then
-            revert_to_original()
-        elseif choice == 9 then
-            break
-        end
-        
-        gg.sleep(500)
-    end
-end
-
--- Fungsi show status yang lebih detail
-function show_status()
-    local base = get_base_address()
-    local motion_val = gg.getValues({{address = base + TARGET_OFFSETS.DAMAGE_MULTIPLIER, flags = gg.TYPE_DWORD}})[1].value
-    local effect_val = gg.getValues({{address = base + TARGET_OFFSETS.DAMAGE_EFFECT, flags = gg.TYPE_DWORD}})[1].value
-    local hp_val = gg.getValues({{address = base + TARGET_OFFSETS.HP_SETTING, flags = gg.TYPE_DWORD}})[1].value
+    -- Lanjutkan dengan script utama di sini
+    -- Contoh: mainMenu() atau autoFarm()
     
-    local status_text = "📊 SYSTEM STATUS:\n"
-    status_text = status_text .. "Multiplier Aktif: " .. tostring(is_active) .. "\n"
-    status_text = status_text .. "Current Multiplier: x" .. current_multiplier .. "\n"
-    status_text = status_text .. "Safe Mode: " .. (safe_mode and "ON" : "OFF") .. "\n"
-    status_text = status_text .. "Damage Motion Value: " .. motion_val .. "\n"
-    status_text = status_text .. "Damage Effect Value: " .. effect_val .. "\n"
-    status_text = status_text .. "HP Setting Value: " .. hp_val .. "\n"
-    status_text = status_text .. "Base Address: " .. string.format("%X", base)
-    
-    gg.alert(status_text)
-end
-
--- Inisialisasi
-gg.toast("🎮 Advanced Damage Script Loaded")
-gg.alert("⚠️  PERINGATAN KEAMANAN:\n" ..
-         "1. Gunakan di akun dummy/testing saja\n" ..
-         "2. Script ini menggunakan teknik anti-detection\n" ..
-         "3. Selalu backup nilai original terlebih dahulu!\n" ..
-         "4. Safe Mode direkomendasikan untuk menghindari ban")
-
--- Jalankan stability test pertama
-if test_stability() then
-    gg.toast("✅ System stabil, siap digunakan")
 else
-    gg.alert("⚠️  System tidak stabil! Disarankan restart game.")
+    gg.alert("❌ Gagal validasi!\n" .. message)
+    os.exit()
 end
 
--- Jalankan main menu
-main_menu()
+local SECURITY_CONFIG = {
+    WARNING_MESSAGE = "[💢] Jangan diintip bang!",
+    WARNING_DELAY = 1000,
+    KILL_PROCESS = true,
+    ENABLE_LOGGING = true
+}
 
--- Auto-revert saat script exit
-function onExit()
-    if is_active then
-        gg.toast("🔄 Revert otomatis...")
-        revert_to_original()
+-- Backup original function
+local originalSearchNumber = gg.searchNumber
+local originalSearchAddress = gg.searchAddress
+local originalSearchBytes = gg.searchBytes
+
+-- Logging function for security events
+local function logSecurityEvent(eventType, details)
+    if SECURITY_CONFIG.ENABLE_LOGGING then
+        local timestamp = os.date("%Y-%m-%d %H:%M:%S")
+        print(string.format("[SECURITY] %s - %s: %s", timestamp, eventType, details))
     end
-    gg.toast("Script dihentikan")
 end
 
-gg.registerExitHandler(onExit)            value = gg.getValues({{address = base + DAMAGE_MOTION_OFFSET, flags = gg.TYPE_DWORD}})[1].value,
-            flags = gg.TYPE_DWORD
-        },
-        damage_effect = {
-            address = base + DAMAGE_EFFECT_OFFSET,
-            value = gg.getValues({{address = base + DAMAGE_EFFECT_OFFSET, flags = gg.TYPE_DWORD}})[1].value,
-            flags = gg.TYPE_DWORD
-        }
-    }
-    
-    gg.toast("✅ Backup nilai original berhasil")
+-- Enhanced security wrapper function
+local function createSecurityWrapper(originalFunc, funcName)
+    return function(...)
+        -- Hide GG interface before operation
+        gg.setVisible(false)
+        
+        -- Execute original function
+        local result = originalFunc(...)
+        
+        -- Check if user tried to peek during operation
+        if gg.isVisible() then
+            gg.setVisible(false)
+            
+            -- Log security breach
+            logSecurityEvent("PEEK_ATTEMPT", "User tried to view GG during " .. funcName)
+            
+            -- Show warning message
+            gg.alert(SECURITY_CONFIG.WARNING_MESSAGE)
+            gg.sleep(SECURITY_CONFIG.WARNING_DELAY)
+            
+            -- Terminate process if configured
+            if SECURITY_CONFIG.KILL_PROCESS then
+                logSecurityEvent("PROCESS_TERMINATED", "Game process killed due to peek attempt")
+                gg.processKill()
+            end
+            
+            -- Optional: Add more countermeasures here
+            -- gg.processKill() can be replaced with other actions
+        end
+        
+        return result
+    end
 end
 
--- Fungsi apply damage multiplier
-function apply_damage_multiplier(multiplier)
-    local base = get_base_address()
-    current_multiplier = multiplier
+-- Apply security wrappers to multiple GG functions
+local function enableSecuritySystem()
+    gg.searchNumber = createSecurityWrapper(originalSearchNumber, "searchNumber")
+    gg.searchAddress = createSecurityWrapper(originalSearchAddress, "searchAddress") 
+    gg.searchBytes = createSecurityWrapper(originalSearchBytes, "searchBytes")
     
-    -- Modifikasi damage motion setting
-    gg.setValues({
-        {
-            address = base + DAMAGE_MOTION_OFFSET,
-            value = 1,  -- Force disable damage motion
-            flags = gg.TYPE_DWORD
-        }
-    })
+    -- Optional: Add more functions to protect
+    -- gg.getResults, gg.setValues, etc.
     
-    -- Modifikasi damage effect (optional)
-    gg.setValues({
-        {
-            address = base + DAMAGE_EFFECT_OFFSET,
-            value = 1,  -- Enhance damage effect
-            flags = gg.TYPE_DWORD
-        }
-    })
-    
-    is_active = true
-    gg.toast("✅ Damage Multiplier x" .. multiplier .. " diaktifkan")
+    gg.toast("🔒 Security System Activated!")
+    logSecurityEvent("SYSTEM_ACTIVATED", "Anti-peek protection enabled")
 end
 
--- Fungsi revert ke nilai original
-function revert_to_original()
-    if original_values.damage_motion then
-        gg.setValues({
-            {
-                address = original_values.damage_motion.address,
-                value = original_values.damage_motion.value,
-                flags = original_values.damage_motion.flags
-            }
-        })
+-- Disable security and restore original functions
+local function disableSecuritySystem()
+    gg.searchNumber = originalSearchNumber
+    gg.searchAddress = originalSearchAddress
+    gg.searchBytes = originalSearchBytes
+    
+    gg.toast("🔓 Security System Disabled!")
+    logSecurityEvent("SYSTEM_DEACTIVATED", "Anti-peek protection disabled")
+end
+
+-- Advanced security check with random timing
+local function advancedSecurityCheck()
+    local randomCheck = math.random(1, 100)
+    
+    if randomCheck > 80 then  -- 20% chance to perform extra check
+        if gg.isVisible() then
+            gg.setVisible(false)
+            logSecurityEvent("RANDOM_CHECK", "Random security check detected peek attempt")
+            gg.alert("⚠️ Detected suspicious activity!")
+            gg.sleep(500)
+        end
+    end
+end
+
+-- Initialize security system
+enableSecuritySystem()
+
+-- Example usage with error handling
+local function safeSearchNumber(value, type, ...)
+    local status, result = pcall(gg.searchNumber, value, type, ...)
+    
+    if not status then
+        logSecurityEvent("SEARCH_ERROR", "Failed search: " .. tostring(result))
+        gg.alert("❌ Search error: " .. tostring(result))
+        return nil
     end
     
-    if original_values.damage_effect then
-        gg.setValues({
-            {
-                address = original_values.damage_effect.address,
-                value = original_values.damage_effect.value,
-                flags = original_values.damage_effect.flags
-            }
-        })
-    end
-    
-    is_active = false
-    gg.toast("✅ Revert ke nilai original berhasil")
+    return result
 end
 
--- Fungsi safety check
-function safety_check()
-    local base = get_base_address()
-    local current_motion = gg.getValues({{address = base + DAMAGE_MOTION_OFFSET, flags = gg.TYPE_DWORD}})[1].value
-    local current_effect = gg.getValues({{address = base + DAMAGE_EFFECT_OFFSET, flags = gg.TYPE_DWORD}})[1].value
+-- Menu for security settings
+local function securityMenu()
+    local choice = gg.choice({
+        "1. Enable Security System",
+        "2. Disable Security System",
+        "3. Change Security Settings",
+        "4. Test Security",
+        "5. Back to Main Menu"
+    }, nil, "🔒 Security Settings")
     
-    if not original_values.damage_motion then
-        gg.alert("❌ ERROR: Backup belum dilakukan!")
+    if choice == 1 then
+        enableSecuritySystem()
+    elseif choice == 2 then
+        disableSecuritySystem()
+    elseif choice == 3 then
+        -- Implementation for settings change
+        gg.alert("Security settings menu coming soon!")
+    elseif choice == 4 then
+        gg.alert("Testing security system...")
+        gg.setVisible(true) -- Trigger security manually for test
+    end
+end
+
+-- Main protection loop (optional)
+local function securityMonitor()
+    while true do
+        advancedSecurityCheck()
+        gg.sleep(3000) -- Check every 3 seconds
+    end
+end
+
+local AntiLoad = function(code) local Num = 0 local TakeCode = function(Code) local num2 = Num + 1 Num = num2 return code[Num] end return TakeCode end local code = {" "," "," "} assert(load(AntiLoad(code)))()
+gg.setVisible(false)
+
+function showToast(message)
+    gg.toast("[" .. CONFIG.SCRIPT_VERSION .. "] " .. message)
+end
+
+function showAlert(title, message)
+    gg.alert("⚡ " .. title .. " ⚡\n" .. message)
+end
+
+function safeCall(func, ...)
+    local success, result = pcall(func, ...)
+    if not success then
+        showAlert("ERROR", "Terjadi kesalahan: " .. tostring(result))
+        return false
+    end
+    return result
+end
+
+-- Fungsi untuk membuat border dekoratif
+local function createBorder(text, symbol)
+    local length = string.len(text)
+    local border = string.rep(symbol, length + 4)
+    return border
+end
+
+-- Fungsi untuk cek expired date
+local function checkExpiration()
+    local currentDate = os.date("%Y/%m/%d")
+    if currentDate > CONFIG.EXPIRE_DATE then
+        gg.alert("⚠️ SCRIPT EXPIRED ⚠️\n\nScript ini telah kedaluwarsa!\nSilakan hubungi developer untuk update.")
+        return false
+    end
+    return true
+end
+
+-- Fungsi untuk mendapatkan status koneksi (simulasi)
+local function getConnectionStatus()
+    -- Simulasi pengecekan koneksi
+    local statuses = {"🟢 ONLINE", "🟡 UNSTABLE", "🔴 OFFLINE"}
+    return statuses[math.random(1, 2)] -- Bias ke online/unstable
+end
+
+local CONFIG = {
+    MOD_NAME = "VELLIX MOD MENU",
+    VERSION = "v1.5.2",
+    AUTHOR = "VELLIX",
+    EXPIRE_DATE = "2025/12/05", -- Format: YYYY/MM/DD
+    WELCOME_DELAY = 2000, -- milliseconds,
+    GAME_VERSION = "3.1.11 GLOBAL",
+    SCRIPT_VERSION = "VIP v2.0",
+    DEVELOPER = "VELLIX_AO",
+    HOTKEY_EXIT = 24, -- Volume Up untuk exit
+    HOTKEY_BACK = 25  -- Volume Down 
+
+-- =============================================
+-- WELCOME SCREEN
+-- =============================================
+local function showWelcomeScreen()
+    -- Sembunyikan Game Guardian overlay
+    gg.setVisible(false)
+    
+    -- Cek expiration terlebih dahulu
+    if not checkExpiration() then
         return false
     end
     
-    -- Check jika nilai berubah secara tidak expected
-    if current_motion ~= original_values.damage_motion.value and not is_active then
-        gg.alert("⚠️  WARNING: Nilai damage motion berubah tanpa sepengetahuan script!")
-        return false
-    end
+    -- Generate informasi sistem
+    local currentTime = os.date("*t")
+    local dayName = os.date("%A")
+    local monthName = os.date("%B")
+    local connectionStatus = getConnectionStatus()
+    
+    -- Hitung hari tersisa sampai expired
+    local expireTime = os.time({year=2025, month=12, day=5})
+    local currentUnixTime = os.time()
+    local daysLeft = math.ceil((expireTime - currentUnixTime) / (24 * 60 * 60))
+    
+    -- Format welcome message yang lebih kaya
+    local welcomeMessage = string.format([[
+╔═══════════════════════════════════════╗
+║            ⚡ %s ⚡            ║
+║                 %s                 ║
+╠═══════════════════════════════════════╣
+║                                       ║
+║  📅 %s, %s %d, %04d              ║
+║  🕐 %02d:%02d:%02d (%s)                    ║
+║  🌐 Status: %s                ║
+║                                       ║
+║  ⏰ Script Valid: %d hari lagi        ║
+║  🔧 Build: %s                        ║
+║                                       ║
+║  💡 Tips: Jangan lupa update script   ║
+║     secara berkala untuk fitur terbaru║
+║                                       ║
+╚═══════════════════════════════════════╝
+
+        🎮 Selamat Bermain & Have Fun! 🎮
+        
+         Tekan OK untuk melanjutkan...
+]], 
+    CONFIG.MOD_NAME,
+    CONFIG.VERSION,
+    dayName,
+    monthName,
+    currentTime.day,
+    currentTime.year,
+    currentTime.hour,
+    currentTime.min,
+    currentTime.sec,
+    currentTime.hour >= 12 and "PM" or "AM",
+    connectionStatus,
+    daysLeft > 0 and daysLeft or 0,
+    CONFIG.VERSION
+    )
+    
+    -- Tampilkan welcome message
+    gg.alert(welcomeMessage)
+    
+    -- Loading animation simulation
+    gg.toast("🔄 Memuat mod menu...")
+    gg.sleep(500)
+    gg.toast("⚙️ Mengecek sistem...")
+    gg.sleep(500)
+    gg.toast("✅ Siap digunakan!")
+    gg.sleep(300)
+    
+    -- Tampilkan kembali Game Guardian overlay
+    gg.setVisible(true)
     
     return true
 end
 
--- Main menu
-function main_menu()
-    while true do
-        local menu_options = {}
-        
-        if not is_active then
-            menu_options = {
-                "🔹 Backup Nilai Original",
-                "⚡ Damage Multiplier x2",
-                "⚡ Damage Multiplier x5", 
-                "⚡ Damage Multiplier x10",
-                "🔍 Status System",
-                "❌ Keluar"
-            }
-        else
-            menu_options = {
-                "🔹 Backup Nilai Original",
-                "⚡ Damage Multiplier x2 (Aktif)",
-                "⚡ Damage Multiplier x5 (Aktif)",
-                "⚡ Damage Multiplier x10 (Aktif)",
-                "↩️  Revert ke Original",
-                "🔍 Status System",
-                "❌ Keluar"
-            }
-        end
-        
-        local choice = gg.choice(menu_options, nil, "🎮 MULTIPLE DAMAGE MENU\nCurrent: x" .. current_multiplier)
-        
-        if choice == nil then break end
-        
-        if choice == 1 then
-            backup_original_values()
-        elseif choice == 2 then
-            if safety_check() then
-                apply_damage_multiplier(2.0)
-            end
-        elseif choice == 3 then
-            if safety_check() then
-                apply_damage_multiplier(5.0)
-            end
-        elseif choice == 4 then
-            if safety_check() then
-                apply_damage_multiplier(10.0)
-            end
-        elseif choice == 5 then
-            if is_active then
-                revert_to_original()
-            else
-                show_status()
-            end
-        elseif choice == 6 then
-            if is_active then
-                show_status()
-            else
-                os.exit()
-            end
-        elseif choice == 7 then
-            os.exit()
-        end
-        
-        gg.sleep(500)
-    end
+function HOME()
+gg.setVisible(false)
+HOMEMENU = gg.choice({
+"____MENU____",
+
+"📁 UNTUK FARM ",
+
+"📁 UNTUK DUGEON ",
+
+"📁 TELEPORT ",
+
+"📁 Skill Farm Cowok",
+
+"📁 Skill Farm Cewek",
+
+"📁 croot",
+
+"📖 SAVED ITEM",
+
+"📖 QUEST BONUS",
+
+"🔚【EXIT】🔚",
+
+}, nil,"⏩⏩SCRIPT VIP VELLIX_AO⏪⏪\nVELLIX_AO Aurcus Online\n🇮🇩 Aurcus 3.1.11 GLOBAL🇮🇩")
+if HOMEMENU == 1 then BYPASS0()
+ end
+if HOMEMENU == 2 then LOBYM()
+ end
+if HOMEMENU == 3 then GAMEM()
+ end
+ if HOMEMENU == 4 then TP()
+ end
+ if HOMEMENU == 5 then GAMEEM()
+end
+if HOMEMENU == 6 then GAMEZ()
+ end
+ if HOMEMENU == 7 then crt()
+ end
+ if HOMEMENU == 8 then bag()
+ end
+ if HOMEMENU == 9 then qttp()
+ end
+if HOMEMENU == 10 then COIN()
+end
+if HOMEMENU == 10 then Exit()
+ end
+HOMEDM = -1
 end
 
--- Fungsi show status
-function show_status()
-    local base = get_base_address()
-    local motion_val = gg.getValues({{address = base + DAMAGE_MOTION_OFFSET, flags = gg.TYPE_DWORD}})[1].value
-    local effect_val = gg.getValues({{address = base + DAMAGE_EFFECT_OFFSET, flags = gg.TYPE_DWORD}})[1].value
+function LOBYM()
+LBMENU = gg.multiChoice({
+"🔙❌【LOBY】❌🔙",
+
+"📖CHEAT STATUS",
+
+"📒SCRIPT SETTA",
+
+"📒SCRIPT EVEHOME",
+
+"📒LOOP SKILL",
+
+"📖Auto Loot Eve",
+
+"📖Auto Loot Setta",
+
+"📒BUFF",
+
+"🔙❌【EXIT】❌🔙",
+
+}, nil,"⏩⏩SCRIPT VIP VELLIX_AO⏪⏪\nVELLIX_AO Aurcus Online\n🇮🇩 Aurcus 3.1.11 GLOBAL🇮🇩")
+if LBMENU == nil then else
+if LBMENU[1] == true then LOBYM() end
+if LBMENU[2] == true then gp() end
+if LBMENU[3] == true then st() end
+if LBMENU[4] == true then ev() end
+if LBMENU[5] == true then ls() end
+if LBMENU[6] == true then ale() end
+if LBMENU[7] == true then als() end
+if LBMENU[8] == true then buffp() end
+if LBMENU[9] == true then HOME() end
+ end
+end
+
+function BYPASS0()
+  local menudebug = gg.choice({
+    "1. Anti Force Close Saat Login",
+    "2. Stabilizer Saat Pindah Map",
+    "3. Clear Memory Manual",
+    "4. Keluar"
+  }, nil, "Aurcus Online | Script Stabilizer")
+
+  if menudebug == 1 then
+    antiLogin()
+  elseif menudebug == 2 then
+    mapStabilizer()
+  elseif menudebug == 3 then
+    clearMemory()
+  elseif menudebug == 4 then
+    HOME()
+  end
+end
+
+function antiLogin()
+  gg.clearResults()
+  gg.searchNumber("1337;1;0;0::17", gg.TYPE_DWORD)
+  gg.refineNumber("1337")
+  local r = gg.getResults(10)
+  for i, v in ipairs(r) do
+    v.value = "0"
+    v.freeze = true
+  end
+  gg.addListItems(r)
+  gg.toast("Anti Force Close Login Aktif")
+end
+
+function mapStabilizer()
+  gg.setVisible(false)
+
+function disableGGDetection()
+  gg.setRanges(gg.REGION_CODE_APP | gg.REGION_JAVA_HEAP)
+  gg.searchNumber("4761214;1162690580::17", gg.TYPE_DWORD) -- Nilai acak yang sering muncul dari libgg
+  gg.clearResults()
+  gg.toast("Bypass Deteksi GG Aktif")
+end
+
+function advancedMapStabilizer()
+ 
+  gg.clearResults()
+  gg.setRanges(gg.REGION_C_ALLOC)
+  gg.searchNumber("20000000~60000000", gg.TYPE_DWORD)
+  local res = gg.getResults(20)
+  for i, v in ipairs(res) do
+    v.value = "0"
+    v.freeze = true
+  end
+  gg.addListItems(res)
+  gg.toast("Advanced Stabilizer Aktif")
+end
+
+disableGGDetection()
+advancedMapStabilizer()
+gg.setVisible(false)
+gg.clearResults()
+gg.setRanges(gg.REGION_C_DATA)
+gg.searchNumber("gg", gg.TYPE_BYTE)
+gg.clearResults()
+gg.clearList()
+gg.toast("Mode Hantu Aktif: GG Disembunyikan Total")
+gg.toast("Map Crash Protection Siap. Sekarang coba pindah map.")
+end
+
+function clearMemory()
+  gg.clearResults()
+  gg.clearList()
+  gg.toast("Memory Game Guardian Dibersihkan")
+end
+
+
+function COIN()
+gg.setVisible(false)
+ccmenu = gg.choice({
+	"____【COIN MISSION】____",
+    'CM【100c】> 1',
+    'CM【100c】> 2',
+    'CM【100c】> 3',
+    'CM【100c】> 4',
+    'CM【100c】> 5',
+    'CM【100c】> 6',
+    'CM【100c】> 7',
+    'CM【100c】> 8',
+   'CM【100c】> 9',
+   'CM【100c】> 10',
+    'CM【100c】> 11',
+    'CM【100c】> 12',
+    'CM【100c】> 13',
+    'CM【100c】> 14',
+    'CM【100c】> 15',
+    'CM【100c】> 16',
+    'CM【100c】> 17',
+    'CM【100c】> 18',
+   'CM【100c】> 19',
+   'CM【100c】> 20',
+    'CM【100c】> 21',
+    'CM【100c】> 22',
+    'CM【100c】> 23',
+    'CM【100c】> 24',
+    'CM【100c】> 25',
+    'CM【100c】> 26',
+    'CM【100c】> 27',
+"🔙❌【BACK】❌🔙",
+
+}, nil,os.date("⏩⏩SCRIPT FREE VELLIX⏪⏪\n📆 Date: %A, %B %d %Y\n⏲️ Time: %I:%M %p\nVELLIX_AO Aurcus Online\n🇮🇩 Aurcus 3.2.1 GLOBAL🇮🇩"))
+if menu == 1 then c100()
+ end
+if ccmenu == 2 then cc1()
+ end
+ if ccmenu == 3 then cc2()
+ end
+ if ccmenu == 4 then cc3()
+ end
+ if ccmenu == 5 then cc4()
+ end
+ if ccmenu == 6 then cc5()
+ end
+ if ccmenu == 7 then cc6()
+ end
+ if ccmenu == 8 then cc7()
+ end
+ if ccmenu == 9 then cc8()
+ end
+ if ccmenu == 10 then cc9()
+ end
+ if ccmenu == 11 then cc10()
+ end
+ if ccmenu == 12 then cc11()
+ end
+ if ccmenu == 13 then cc12()
+ end
+ if ccmenu == 14 then cc13()
+ end
+ if ccmenu == 15 then cc14()
+ end
+ if ccmenu == 16 then cc15()
+ end
+ if ccmenu == 17 then cc16()
+ end
+ if ccmenu == 18 then cc17()
+ end
+ if ccmenu == 19 then cc18()
+ end
+ if ccmenu == 20 then cc19()
+ end
+ if ccmenu == 21 then cc20()
+ end
+ if ccmenu == 22 then cc21()
+ end
+ if ccmenu == 23 then cc22()
+ end
+ if ccmenu == 24 then cc23()
+ end
+ if ccmenu == 25 then cc24()
+ end
+ if ccmenu == 26 then cc25()
+ end
+ if ccmenu == 27 then cc26()
+ end
+ if ccmenu == 28 then cc27()
+ end
+ if ccmenu == 29 then HOME()
+ end
+end
+
+function gp()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+d=gg.prompt({
+	"Select"}, {data}, {"number"})
+gg.searchNumber("211';"..d[1]..';200',gg.TYPE_DWORD)
+gg.getResults (10)
+gg.refineAddress("D8", -1, gg.TYPE_DWORD, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber(d[1], gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+r = gg.getResults (1)
+L={'', '', '', '', '', ''} 
+LD = 0
+for i=0, 6, 1 do
+	if gg.isVisible(true) and i ~= 6 then
+		gg.setVisible(false)
+	end
+	gg.sleep(1000)
+	gg.toast('Loading: '..L[1]..L[2]..L[3]..L[4]..L[5]..L[6]..' '..LD..'/120%')
+	LD = LD + 20
+	table.remove(L)
+	table.insert(L, 2, "")
+	if i == 6 then
+		gg.sleep(2000)
+end
+end        
+local L0_0 = {}
+         L0_0 = {}
+    L0_0[1] = {}
+    L0_0[1].address = r[1].address + -72
+    L0_0[1].flags = gg.TYPE_DWORD
+    L0_0[1].value = "999999999"
+    L0_0[1].freeze = true
+    L0_0[2] = {}
+    L0_0[2].address = r[1].address + 300
+    L0_0[2].flags = gg.TYPE_DWORD
+    L0_0[2].value = "-999"
+    L0_0[2].freeze = true
+    L0_0[3] = {}
+    L0_0[3].address = r[1].address + 304
+    L0_0[3].flags = gg.TYPE_DWORD
+    L0_0[3].value = "-999"
+    L0_0[3].freeze = true
+    L0_0[4] = {}
+    L0_0[4].address = r[1].address + 340
+    L0_0[4].flags = gg.TYPE_DWORD
+    L0_0[4].value = "-999999999"
+    L0_0[4].freeze = true
+    gg.setValues(L0_0)
+    gg.addListItems(L0_0)
+  local ox = {}
+ox= gg.prompt({
+	"Select: [5;10000]"}, {data}, {"number"})
+	gg.editAll(ox[1], 4)
+	revert = gg.getResults(1, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(1, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = ox [1]
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+end
+
+function buffp()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("65536;1;211~212:13", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("211", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "375"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+gg.processResume()
+end
+
+function st()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("15D;1D;1065353216D;1008981770D;1058642330D;1072064102D;5379D:33", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+
+gg.searchNumber("168D;1D;1008981770D;1056964608D;1072064102D;1311D:33", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+
+gg.searchNumber("12;1;1072064102;1056964608;1008981770;1072064102;3614:33", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+end
+
+function ev()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("95;1008981770::50", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+
+gg.searchNumber("88;1008981770::50", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+
+gg.searchNumber("172;1008981770::50", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+
+gg.searchNumber("256;1008981770::50", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+
+gg.searchNumber("257;1008981770::50", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+
+gg.searchNumber("88;1008981770::50", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+end
+
+function ls()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("119;0;16777216:13", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("119", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "40"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.clearResults()
+gg.processResume()
+end
+
+function ale()
+nloot = gg.multiChoice({
+"🔙❌【LOOT EVEHOME】❌🔙",
+
+                "  STEP 1",
+
+               "  STEP 2 ",
+               
+               "  STEP 3 ",
+
+         "🔙❌【EXIT】❌🔙",
+
+}, nil,"⏩⏩SCRIPT VIP VELLIX_AO⏪⏪\nVELLIX_AO Aurcus Online\n🇮🇩 Aurcus 3.1.11 GLOBAL🇮🇩")
+if nloot == nil then else
+if nloot[1] == true then ale() end
+if nloot[2] == true then s1() end
+if nloot[3] == true then s2() end
+if nloot[4] == true then s3() end
+if nloot[7] == true then HOME() end
+end
+end
+
+function s1()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("Q9A99'w'\"B\"0090'@33'C0'B'", gg.TYPE_BYTE, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("Q9A99'w'\"B\"0090'@33'C0'B'", gg.TYPE_BYTE, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.sleep(3000)
+gg.processResume()
+gg.searchFuzzy("0", gg.SIGN_FUZZY_EQUAL, gg.TYPE_BYTE, 0, -1, 0)
+gg.sleep(3000)
+gg.processResume()
+gg.alert("📁PROSES PENGAMBILAN DATA RESOURCE\nJANGAN BERGERAK🖐️")
+gg.toast("▓▒▒▒▒▒▒▒▒▒10%")
+gg.sleep(1200)
+gg.toast("▓▓▒▒▒▒▒▒▒▒20%")
+gg.sleep(1300)
+gg.toast("▓▓▓▒▒▒▒▒▒▒30%")
+gg.sleep(1400)
+gg.toast("▓▓▓▓▒▒▒▒▒▒40%")
+gg.searchFuzzy("0", gg.SIGN_FUZZY_EQUAL, gg.TYPE_BYTE, 0, -1, 0)
+gg.sleep(3000)
+gg.processResume()
+gg.toast("▓▓▓▓▓▒▒▒▒▒50%")
+gg.sleep(1600)
+gg.toast("▓▓▓▓▓▓▒▒▒▒60%")
+gg.refineNumber("-64", gg.TYPE_BYTE, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.sleep(1700)
+gg.toast("▓▓▓▓▓▓▓▒▒▒70%")
+gg.sleep(1800)
+gg.toast("▓▓▓▓▓▓▓▓▒▒80%")
+gg.refineAddress("2", -1, gg.TYPE_BYTE, gg.SIGN_EQUAL, 0, -1, 0)
+gg.sleep(1900)
+gg.toast("▓▓▓▓▓▓▓▓▓▒90%")
+gg.sleep(2000)
+gg.toast("▓▓▓▓▓▓▓▓▓▓100%")
+gg.sleep(2000)
+gg.toast("💯 COMPLETED RESOURCES FILES👈")
+gg.processResume()
+r1 = gg.getResults (1)
+end
+
+function s2()
+local L0_1 = {}
+         L0_1 = {}
+    L0_1[1] = {}
+    L0_1[1].address = r1[1].address + 0
+    L0_1[1].flags = gg.TYPE_BYTE
+    L0_1[1].value = "-105"
+    L0_1[1].freeze = false
+    L0_1[2] = {}
+    L0_1[2].address = r1[1].address + -6
+    L0_1[2].flags = gg.TYPE_FLOAT
+    L0_1[2].value = "5"
+    L0_1[2].freeze = false
+    L0_1[3] = {}
+    L0_1[3].address = r1[1].address + -8
+    L0_1[3].flags = gg.TYPE_WORD
+    L0_1[3].value = "17071"
+    L0_1[3].freeze = false
     
-    gg.alert("📊 SYSTEM STATUS:\n" ..
-             "Multiplier Aktif: " .. tostring(is_active) .. "\n" ..
-             "Current Multiplier: x" .. current_multiplier .. "\n" ..
-             "Damage Motion Value: " .. motion_val .. "\n" ..
-             "Damage Effect Value: " .. effect_val .. "\n" ..
-             "Base Address: " .. string.format("%X", base))
+    gg.setValues(L0_1)
+    gg.addListItems(L0_1)
 end
 
--- Inisialisasi
-gg.toast("🎮 Multiple Damage Script Loaded")
-gg.alert("⚠️  PERINGATAN:\n" ..
-         "1. Gunakan di akun dummy/testing saja\n" ..
-         "2. Risiko ban/crash selalu ada\n" ..
-         "3. Selalu backup nilai original terlebih dahulu!")
+function s3()
+for i = 10000,2000000 do
+gg.sleep(100)
+gg.editAll("-103,", gg.TYPE_BYTE)
+gg.editAll("17064", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-101,", gg.TYPE_BYTE)
+gg.editAll("17064", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-99,", gg.TYPE_BYTE)
+gg.editAll("17059", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-102,", gg.TYPE_BYTE)
+gg.editAll("17057", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-105,", gg.TYPE_BYTE)
+gg.editAll("17057", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-107,", gg.TYPE_BYTE)
+gg.editAll("17059", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-108,", gg.TYPE_BYTE)
+gg.editAll("17061", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-112,", gg.TYPE_BYTE)
+gg.editAll("17064", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-106,", gg.TYPE_BYTE)
+gg.editAll("17064", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-104,", gg.TYPE_BYTE)
+gg.editAll("17066", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-101,", gg.TYPE_BYTE)
+gg.editAll("17063", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-103,", gg.TYPE_BYTE)
+gg.editAll("17062", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-105,", gg.TYPE_BYTE)
+gg.editAll("17063", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-104,", gg.TYPE_BYTE)
+gg.editAll("17058", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-102,", gg.TYPE_BYTE)
+gg.editAll("17060", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-102,", gg.TYPE_BYTE)
+gg.editAll("17064", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-105,", gg.TYPE_BYTE)
+gg.editAll("17060", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-101,", gg.TYPE_BYTE)
+gg.editAll("17058", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-100,", gg.TYPE_BYTE)
+gg.editAll("17063", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-105,", gg.TYPE_BYTE)
+gg.editAll("17114", gg.TYPE_WORD)
+gg.editAll("7", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-99,", gg.TYPE_BYTE)
+gg.editAll("17115", gg.TYPE_WORD)
+gg.editAll("7", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-101,", gg.TYPE_BYTE)
+gg.editAll("17121", gg.TYPE_WORD)
+gg.editAll("7", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("101,", gg.TYPE_BYTE)
+gg.editAll("17139", gg.TYPE_WORD)
+gg.editAll("8", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-61,", gg.TYPE_BYTE)
+gg.editAll("17029", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-61,", gg.TYPE_BYTE)
+gg.editAll("17023", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-57,", gg.TYPE_BYTE)
+gg.editAll("17024", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-55,", gg.TYPE_BYTE)
+gg.editAll("17022", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-63,", gg.TYPE_BYTE)
+gg.editAll("17011", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-64,", gg.TYPE_BYTE)
+gg.editAll("16997", gg.TYPE_WORD)
+gg.editAll("4.5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-66,", gg.TYPE_BYTE)
+gg.editAll("16987", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-81,", gg.TYPE_BYTE)
+gg.editAll("16970", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-102,", gg.TYPE_BYTE)
+gg.editAll("16979", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-104,", gg.TYPE_BYTE)
+gg.editAll("16973", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-102,", gg.TYPE_BYTE)
+gg.editAll("17048", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-103,", gg.TYPE_BYTE)
+gg.editAll("17062", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+end
+end
 
--- Jalankan main menu
-main_menu()
+function als()
+nlsoot = gg.multiChoice({
+"🔙❌【LOOT SETTA】❌🔙",
 
--- Auto-revert saat script exit
-function onExit()
-    if is_active then
-        revert_to_original()
+                "  STEP 1",
+
+               "  STEP 2 ",
+               
+               "  STEP 3 ",
+
+         "🔙❌【EXIT】❌🔙",
+
+}, nil,"⏩⏩SCRIPT VIP VELLIX_AO⏪⏪\nVELLIX_AO Aurcus Online\n🇮🇩 Aurcus 3.1.11 GLOBAL🇮🇩")
+if nlsoot == nil then else
+if nlsoot[1] == true then als() end
+if nlsoot[2] == true then ss1() end
+if nlsoot[3] == true then ss2() end
+if nlsoot[4] == true then ss3() end
+if nlsoot[5] == true then os.exit() end
+end
+end
+
+function ss1()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("Q CD CC E5 42 33 33 83 40 66 66 5C 42'", gg.TYPE_BYTE, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("Q CD CC E5 42 33 33 83 40 66 66 5C 42'", gg.TYPE_BYTE, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.sleep(3000)
+gg.processResume()
+gg.searchFuzzy("0", gg.SIGN_FUZZY_EQUAL, gg.TYPE_BYTE, 0, -1, 0)
+gg.sleep(3000)
+gg.processResume()
+gg.alert("📁PROSES PENGAMBILAN DATA RESOURCE\nJANGAN BERGERAK🖐️")
+gg.toast("▓▒▒▒▒▒▒▒▒▒10%")
+gg.sleep(1200)
+gg.toast("▓▓▒▒▒▒▒▒▒▒20%")
+gg.sleep(1300)
+gg.toast("▓▓▓▒▒▒▒▒▒▒30%")
+gg.sleep(1400)
+gg.toast("▓▓▓▓▒▒▒▒▒▒40%")
+gg.searchFuzzy("0", gg.SIGN_FUZZY_EQUAL, gg.TYPE_BYTE, 0, -1, 0)
+gg.sleep(3000)
+gg.processResume()
+gg.toast("▓▓▓▓▓▒▒▒▒▒50%")
+gg.sleep(1600)
+gg.toast("▓▓▓▓▓▓▒▒▒▒60%")
+gg.refineNumber("92", gg.TYPE_BYTE, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.sleep(1700)
+gg.toast("▓▓▓▓▓▓▓▒▒▒70%")
+gg.sleep(1800)
+gg.toast("▓▓▓▓▓▓▓▓▒▒80%")
+gg.refineAddress("2", -1, gg.TYPE_BYTE, gg.SIGN_EQUAL, 0, -1, 0)
+gg.sleep(1900)
+gg.toast("▓▓▓▓▓▓▓▓▓▒90%")
+gg.sleep(2000)
+gg.toast("▓▓▓▓▓▓▓▓▓▓100%")
+gg.sleep(2000)
+gg.toast("💯 COMPLETED RESOURCES FILES👈")
+gg.processResume()
+r1 = gg.getResults (1)
+end
+
+function ss2()
+local LS0_1 = {}
+         LS0_1 = {}
+    LS0_1[1] = {}
+    LS0_1[1].address = r1[1].address + 0
+    LS0_1[1].flags = gg.TYPE_BYTE
+    LS0_1[1].value = "90"
+    LS0_1[1].freeze = false
+    LS0_1[2] = {}
+    LS0_1[2].address = r1[1].address + -6
+    LS0_1[2].flags = gg.TYPE_FLOAT
+    LS0_1[2].value = "25"
+    LS0_1[2].freeze = false
+    LS0_1[3] = {}
+    LS0_1[3].address = r1[1].address + -8
+    LS0_1[3].flags = gg.TYPE_WORD
+    LS0_1[3].value = "17125"
+    LS0_1[3].freeze = false
+    
+    gg.setValues(LS0_1)
+    gg.addListItems(LS0_1)
+end
+
+function ss3()
+for i = 10000,2000000 do
+gg.sleep(100)
+gg.editAll("96,", gg.TYPE_BYTE)
+gg.editAll("17116", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("99,", gg.TYPE_BYTE)
+gg.editAll("17118", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("92,", gg.TYPE_BYTE)
+gg.editAll("17119", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("89,", gg.TYPE_BYTE)
+gg.editAll("17114", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("93,", gg.TYPE_BYTE)
+gg.editAll("17112", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("99,", gg.TYPE_BYTE)
+gg.editAll("17112", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("104,", gg.TYPE_BYTE)
+gg.editAll("17113", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("108,", gg.TYPE_BYTE)
+gg.editAll("17116", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("103,", gg.TYPE_BYTE)
+gg.editAll("17118", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("93,", gg.TYPE_BYTE)
+gg.editAll("17118", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("94,", gg.TYPE_BYTE)
+gg.editAll("17115", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("100,", gg.TYPE_BYTE)
+gg.editAll("17113", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("39,", gg.TYPE_BYTE)
+gg.editAll("17113", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("30,", gg.TYPE_BYTE)
+gg.editAll("17117", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("35,", gg.TYPE_BYTE)
+gg.editAll("17120", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("41,", gg.TYPE_BYTE)
+gg.editAll("17121", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("46,", gg.TYPE_BYTE)
+gg.editAll("17120", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("41,", gg.TYPE_BYTE)
+gg.editAll("17117", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("37,", gg.TYPE_BYTE)
+gg.editAll("17116", gg.TYPE_WORD)
+gg.editAll("4", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("31,", gg.TYPE_BYTE)
+gg.editAll("17117", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("30,", gg.TYPE_BYTE)
+gg.editAll("17122", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("40,", gg.TYPE_BYTE)
+gg.editAll("17115", gg.TYPE_WORD)
+gg.editAll("5", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("35,", gg.TYPE_BYTE)
+gg.editAll("17136", gg.TYPE_WORD)
+gg.editAll("7", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("47,", gg.TYPE_BYTE)
+gg.editAll("17152", gg.TYPE_WORD)
+gg.editAll("8", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("49,", gg.TYPE_BYTE)
+gg.editAll("17153", gg.TYPE_WORD)
+gg.editAll("9", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("55,", gg.TYPE_BYTE)
+gg.editAll("17153", gg.TYPE_WORD)
+gg.editAll("9", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("64,", gg.TYPE_BYTE)
+gg.editAll("17154", gg.TYPE_WORD)
+gg.editAll("10", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("75,", gg.TYPE_BYTE)
+gg.editAll("17155", gg.TYPE_WORD)
+gg.editAll("10", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("96,", gg.TYPE_BYTE)
+gg.editAll("17156", gg.TYPE_WORD)
+gg.editAll("9", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("95,", gg.TYPE_BYTE)
+gg.editAll("17157", gg.TYPE_WORD)
+gg.editAll("9", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("104,", gg.TYPE_BYTE)
+gg.editAll("17156", gg.TYPE_WORD)
+gg.editAll("9", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-120,", gg.TYPE_BYTE)
+gg.editAll("17146", gg.TYPE_WORD)
+gg.editAll("7", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-106,", gg.TYPE_BYTE)
+gg.editAll("17056", gg.TYPE_WORD)
+gg.editAll("3", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-101,", gg.TYPE_BYTE)
+gg.editAll("17028", gg.TYPE_WORD)
+gg.editAll("3", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-104,", gg.TYPE_BYTE)
+gg.editAll("17030", gg.TYPE_WORD)
+gg.editAll("3", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-107,", gg.TYPE_BYTE)
+gg.editAll("17019", gg.TYPE_WORD)
+gg.editAll("3", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-110,", gg.TYPE_BYTE)
+gg.editAll("16999", gg.TYPE_WORD)
+gg.editAll("3", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-111,", gg.TYPE_BYTE)
+gg.editAll("16991", gg.TYPE_WORD)
+gg.editAll("3", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-116,", gg.TYPE_BYTE)
+gg.editAll("16984", gg.TYPE_WORD)
+gg.editAll("3", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-118,", gg.TYPE_BYTE)
+gg.editAll("16978", gg.TYPE_WORD)
+gg.editAll("3", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-116,", gg.TYPE_BYTE)
+gg.editAll("16982", gg.TYPE_WORD)
+gg.editAll("3", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-112,", gg.TYPE_BYTE)
+gg.editAll("16989", gg.TYPE_WORD)
+gg.editAll("3", gg.TYPE_FLOAT)
+gg.sleep(100)
+gg.editAll("-110,", gg.TYPE_BYTE)
+gg.editAll("16996", gg.TYPE_WORD)
+gg.editAll("3", gg.TYPE_FLOAT)
+end
+end
+
+function GAMEM()
+DMGAME = gg.multiChoice({
+"🔙❌【DUGEON】❌🔙",
+
+"📒NK",
+
+"📒GATE 1",
+
+"📒GATE 2",
+
+"📒GATE 3",
+
+"📒GATE4",
+
+"📒GATE5",
+
+"📒GATE6",
+
+"📒GATE7",
+
+"📒GATE8",
+
+"📒RESET SKILL",
+
+"📚ALL DUGEON",
+
+"📖 GUILD MISION ",
+
+"🔙❌【EXIT】❌🔙",
+
+}, nil, "⏩⏩SCRIPT VIP VELLIX_AO⏪⏪\nVELLIX_AO Aurcus Online\n🇮🇩 Aurcus 3.1.11 GLOBAL🇮🇩")
+if DMGAME == nil then else
+if DMGAME[1] == true then DMGAME() end
+if DMGAME[2] == true then nk() end
+if DMGAME[3] == true then g1()end
+if DMGAME[4] == true then g2()end
+if DMGAME[5] == true then g3()end
+if DMGAME[6] == true then g4()end
+ if DMGAME[7] == true then g5()end
+ if DMGAME[8] ==  true then g6()end
+ if DMGAME[9] == true then g7()end
+ if DMGAME[10] ==  true then g8()end
+if DMGAME[11] == true then rs() end
+if DMGAME[12] == true then dg() end
+if DMGAME[13] == true then TPP() end
+if DMGAME[14] == true then HOME() end
+ end
+end
+
+function nk()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("246;1008981770;1800;1175::50", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+
+gg.searchNumber("161;1008981770;1556;1176::50", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+
+gg.searchNumber("96;1008981770;3085;1174::50", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+
+gg.searchNumber("1081;1008981770;1285;1164::50", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+
+gg.searchNumber("95;1008981770;3081;1177::50", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+
+gg.searchNumber("257D;1008981770;2569D;1074D::50", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+
+gg.searchNumber("124;1008981770;2566;1178::50", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+end
+
+function g1() 
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("212;1;1069547520;1008981770;50331905:29", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+end
+
+function g2() 
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("586;1;1065353216;1008981770;1080033280;16777473:29", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.searchNumber("586;1;1066192077;1008981770;1082130432;33554689:29", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+gg.toast('Area Gate 2 : Actived✔️')
+end
+
+function g3() 
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("699;1;1065353216;1008981770;1069547520;1082549862;1082549862;16777473:29", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+end
+
+function g4()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("836;1008981770;1280;937:45", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+end
+
+function g5()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("662D;1008981770;10280;949;662;1008981770;10280;950:125", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+end
+
+function g6()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("257D;1008981770;2569D;1074D::50", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+end
+
+function g7()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("1061;1008981770;2565;1154:45", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+end
+
+function g8 () 
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("865D;1008981770D;1554D;1181D:45", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-1", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+end
+
+
+function Exit()
+print("⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣿⢛⡛⠿⠛⠿⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⣿⣿⣿⣿⡿⠟⡉⣡⡖⠘⢗⣀⣀⡀⢢⣐⣤⣉⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⣿⣿⡿⠉⣠⣲⣾⡭⣀⢟⣩⣶⣶⡦⠈⣿⣿⣿⣷⣖⠍⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⣿⡛⢀⠚⢩⠍⠀⠀⠡⠾⠿⣋⡥⠀⣤⠈⢷⠹⣿⣎⢳⣶⡘⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⡏⢀⡤⠉⠀⠀⠀⣴⠆⠠⠾⠋⠁⣼⡿⢰⣸⣇⢿⣿⡎⣿⡷⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⠀⢸⢧⠁⠀⠀⢸⠇⢐⣂⣠⡴⠶⣮⢡⣿⢃⡟⡘⣿⣿⢸⣷⡀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣯⢀⡏⡾⢠⣿⣶⠏⣦⢀⠈⠉⡙⢻⡏⣾⡏⣼⠇⢳⣿⡇⣼⡿⡁⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⠈⡇⡇⡘⢏⡃⠀⢿⣶⣿⣷⣿⣿⣿⡘⡸⠇⠌⣾⢏⡼⣿⠇⠀⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⡀⠀⢇⠃⢢⡙⣜⣾⣿⣿⣿⣿⣿⣿⣧⣦⣄⡚⣡⡾⣣⠏⠀⠀⢀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⣷⡀⡀⠃⠸⣧⠘⢿⣿⣿⣿⣿⣿⣻⣿⣿⣿⣿⠃⠘⠁⢈⣤⡀⣬⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⣿⣇⣅⠀⠀⠸⠀⣦⡙⢿⣿⣿⣿⣿⣿⣿⡿⠃⢀⣴⣿⣿⣿⣷⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⡿⢛⣉⣉⣀⡀⠀⢸⣿⣿⣷⣬⣛⠛⢛⣩⣵⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⢋⣴⣿⣿⣿⣿⣿⣦⣬⣛⣻⠿⢿⣿⡇⠈⠙⢛⣛⣩⣭⣭⣝⡛⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⡇⣼⣿⣿⣿⣿⣿⡿⡹⢿⣿⣽⣭⣭⣭⣄⣙⠻⢿⣿⡿⣝⣛⣛⡻⢆⠙⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⢥⣿⣿⣿⣿⣿⣿⢇⣴⣿⣿⣿⣿⣿⡿⣿⣿⣿⣷⣌⢻⣿⣿⣿⣿⣿⣷⣶⣌⠛⢿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⡆⣿⣿⣿⣿⣿⡟⣸⣿⡿⣿⣿⣿⣿⣄⣸⣿⣿⣿⣿⣦⢻⣿⣿⣿⣿⣿⣿⣿⡓⠎⠻⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⠸⣿⣿⣿⣿⡇⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣄⢻⣿⣿⣿⣿⡸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠟⠸⣿⣿⣿⣿⣿⣿⣿⣿⣿⢀⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⠈⣿⣿⣿⣿⣷⢙⠿⣿⣿⣿⣿⣿⣿⣿⠿⣟⣩⣴⣷⣌⠻⣿⣿⣿⣿⣿⣿⡟⢠⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣆⢻⣿⣿⣿⣿⡇⣷⣶⣭⣭⣭⣵⣶⣾⣿⣿⣿⣿⣿⣿⣷⣌⠹⢿⣿⡿⢋⣠⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⡚⣿⣿⣿⣿⡇⢹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣯⢀⣤⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⡇⢻⣿⣿⣿⡇⠘⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣿⣿⠘⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣻⣿⣿⣷⠈⣿⣿⣿⣿⢆⠀⢋⣰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣧⣿⣿⣤⡘⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⣿⠀⣻⣿⣿⣿⠀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣎⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⣿⣒⣻⣿⣿⢏⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄⢻⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⣿⣇⢹⣿⡏⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣬⡻⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⣿⣿⡄⠻⢱⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣝⢎⢻⣿⣿⣿")
+print("⣿⣿⣿⣿⣿⣷⢀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⣿⣿⣾⣦⢻⣿⣿")
+print("⣿⣿⣿⣿⣿⡇⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⣼⣿⣿⣿⣿⣆⢻⣿")
+print("⣿⣿⣿⣿⡿⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣮⡙⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⣰⣿⣿⣿⣿⣿⣿⣆⣿")
+print("⣿⣿⣿⣿⡇⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣝⢿⣿⣿⣿⣿⣿⣿⣿⢡⣿⣿⣿⣿⣿⣿⣿⣿⡌")
+print("⣿⣿⣿⣿⡇⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣝⢿⣿⣿⣿⣿⡿⢸⣿⣿⣿⣿⣿⣿⣿⣿⡇")
+print("⣿⣿⣿⣿⡇⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣆⢻⣿⣿⣿⡇⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷")
+print("⣿⣿⣿⣿⣧⢹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣧⢹⡿⠁⣰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⣿⣿⡌⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡆⢰⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+print("⣿⣿⣿⣿⣿⣷⡘⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡌⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿")
+
+os.exit()
+end
+
+function rs() 
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("3;81;20:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("3", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("25", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+end
+
+function dg()
+gg.alert('DESKRIPSI SCRIPT DUGEONnPergi ke elmo di galleria capital dan pilih mision Minotaur\npilih mode normal dan cari angka 1 lalu pilih mode hard dan murni kan menjadi 10  jika selesai di edit kalian langsung masuk salon (tanpa frezz)NPC\n\nblacksmith search 1 pergi unhappy man murnikan78\n29 g1 shop\n50 sai 4*\n51 La release\n52 festival fan\n53 latent abi\n55 AoT =1044\n58 hello kity\n60-64,83 legit furnis\n65 e.shadow\n66 chocolate furni\n68 fish expan\n70 Cursed weap\n71 Dispel 5\n72 Obsidian=1327 \n73 haloween furni n ava\n74 snowman\n76 choco furnis\n84 schoolgirl furni\n87 starry sky wall furnis\n97 mw3 ava\n98 halloween\n99 str main int sub neck hp\n100 dex head cri body hp leg 1171 bot best pick\n101 cridmg sub men 1387\n102 dex main,def,mpr 1407\n103 hp body, gold furnis 1487\n104 roar mdef int ear 1492\n105 cri head ,matk ring 1497\n106 str sub,vit lower, def ring 1578\n107 snowman\n108 snowalls,veteran abi=1586\n109sweet furnis\n110 demist\n111 blue jp furni\n\nDungeons\n\n480ancient tower\n570 ebisu kagura\n890 alert area\n930 headway fort mime\n960 hidden cradle\n1050 library of insanity\n1109 haya\n1287 95 regilis\n1236 large ring tower\n1299 mitera\n752 tasogarep\n430 northern cape\n1360 matia cosmos\n1410 awekening quest dungeon\n1546 trex\n1606 nk hard 1625 nk expert\n\nGATES\n\n1316 g4\n1320 g5\n1420 g6\n1562 g7\n1650 g8\n\nJP DUNGEONS\n\n750 silver world\n860 nightmare world\n1044 titan expert 4*\n1136 yelow cloth piece\n1142 secret hideout\n1159 relier hard\n1171 relier maze hyumo,tiger rock\n1256 hulk n schoolgirl\n1258 seagod book/green crystal\n1265 EXP TAURUS\n1268 holy worl,holy abi\n1270 dark world\n1274 foxgirl,jp leafs\n1327 Dark Obsidian\n1331 orange pumpkin\n1328 pumpkin blu\n1330 pumpkin green\n1331 pumpkin orange\n1376 blue/red crystal\n1387 Dragon fosil\n1397 souqs mucus\n1407 Onyx\n1411 discipline world, exp mission\n1428 school girl / hearts\n1487 taurus\n1492 maze of famine\n1493 fox,silver coin of hapiness\n1497 tailwind,crystal of storm\n1502 schoolgirl\n1567 nightmare\n1573 pumpkin\n1574 large e.shadow leaf\n1578 79 latent\n1586 proof of victory')
+end
+
+function TPP()
+MTPP = gg.multiChoice({
+"🔙❌【GUILD MISION】❌??",
+
+"📁DEN OF NO RETURN",
+
+"📁FORES MANA POLL",
+
+"📁PREA PDIP",
+
+"📁OGRE",
+
+"📁AVES",
+
+"📁 Night Mare",
+
+
+"🔙❌【EXIT】❌🔙",
+
+}, nil,"⏩⏩ SCRIPT VIP VELLIX_AO⏪⏪\nVELLIX_AO Aurcus Online\n🇮🇩 Aurcus 3.1.11 GLOBAL🇮🇩")
+if MTPP == nil then else
+if MTPP[1] == true then TPP() end
+if MTPP[2] == true then ggtp1() end
+if MTPP[3] == true then ggtp2() end
+if MTPP[4] == true then ggtp3() end
+if MTPP[5] == true then ggtp4() end
+if MTPP[6] == true then ggtp5() end
+if MTPP[7] == true then ggtp6() end
+if MTPP[8] == true then HOME() end
+ end
+end
+
+function ggtp1()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("159;1;1077936128;1008981770;33554689;1054:33", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(4, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-2", gg.TYPE_DWORD)
+gg.clearResults()
+end
+
+function ggtp2()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("129;1;1077936128;1008981770;50331905;1550:33", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(1, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-2", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.searchNumber("129;1;1077936128;1008981770;16777473;1550:33", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(1, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-2", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.searchNumber("129;1;1082549862;1008981770;33554689;1550:33", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(1, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-2", gg.TYPE_DWORD)
+
+gg.clearResults()
+end
+
+function ggtp3()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("717;1;1080033280;1008981770;1061997773;1069547520;1073741824;33620225:29", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(1, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-2", gg.TYPE_DWORD)
+gg.clearResults()
+end
+
+function ggtp4()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("657;1;1075838976;1008981770;16777473;2565:33", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(1, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-2", gg.TYPE_DWORD)
+gg.clearResults()
+end
+
+function ggtp5()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("258;1;2.0F;1008981770;1.5F;67109121;1806:33", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("1008981770", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("-2", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+end
+
+function ggtp6()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.alert("©PROSES")
+end
+
+function TP()
+MTP = gg.multiChoice({
+"🔙❌【TELEPORT】❌🔙",
+
+"EVEHOME 🔍",
+
+"DEV FAST DROPT 🔍",
+
+"DEV RESET SKILL DROPT KEY 🔍",
+
+"FARM BOSST EXP TO GET KEY 🔍",
+
+"SETTA 🔍",
+
+" Night Kingdom 🔍",
+
+" Stardust 🔍",
+
+" Summer beach 🔍",  
+
+"🔙❌【EXIT】❌🔙",
+
+}, nil,"⏩⏩SCRIPT VIP VELLIX_AO⏪⏪\nVELLIX_AO Aurcus Online\n🇮🇩 Aurcus 3.1.11 GLOBAL🇮🇩")
+if MTP == nil then else
+if MTP[1] == true then LOBYM() end
+if MTP[2] == true then tp1() end
+if MTP[3] == true then tp2() end
+if MTP[4] == true then tp3() end
+if MTP[5] == true then tp4() end
+if MTP[6] == true then tp5() end
+if MTP[7] == true then tp6() end
+if MTP[8] == true then tp7() end
+if MTP[9] == true then tp8() end
+if MTP[10] == true then HOME() end
+ end
+end
+
+function tp1()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "1201"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+
+gg.sleep(2000)
+gg.clearList()
+end
+
+function tp2()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "39"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+
+gg.sleep(2000)
+gg.clearList()
+end
+
+function tp3()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "1"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+
+gg.sleep(2000)
+gg.clearList()
+end
+
+function tp4()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "1146"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+
+gg.sleep(2000)
+gg.clearList()
+end
+
+function tp5()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "1107"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+
+gg.sleep(2000)
+gg.clearList()
+end
+
+function tp6()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "1166"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+
+gg.sleep(2000)
+gg.clearList()
+end
+
+function tp7()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "1156"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+
+gg.sleep(2000)
+gg.clearList()
+end
+
+function tp8()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "286"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+
+gg.sleep(2000)
+gg.clearList()
+end
+
+function GAMEZ()
+askb = gg.choice({
+"🔙❌【SKILL FARM CEWEK】❌🔙",
+
+                "📒SKILL PASIR",
+
+               "📒 SKILL BUFF LIGHT ",
+               
+               "📒SKILL BUF FIGHT ",
+
+               "📒SKILL WIGS",
+
+               "📒BONUS",
+
+         "🔙❌【EXIT】❌🔙",
+
+}, nil,"⏩⏩SCRIPT VIP VELLIX_AO⏪⏪\nVELLIX_AO Aurcus Online\n🇮🇩 Aurcus 3.1.11 GLOBAL🇮🇩")
+if askb == nil then else
+if askb == 1then askb() end
+if askb == 2 then gsb1() end
+if askb == 3 then gsb2() end
+if askb == 4 then gsb3() end
+if askb == 5 then gsb4() end
+if askb == 6 then gsb5() end
+if askb == 7 then HOME() end
+end
+end
+
+function gsb1()
+gg.clearResults()
+gg.setVisible(false)
+gg.searchNumber("25769803776Q;6;200;0;1.0F:105", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("200", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineAddress("4", -1, gg.TYPE_DWORD, gg.SIGN_EQUAL, 0, -1, 0)
+gt= gg.getResults (1)
+local Ll0_3 = {}
+         Ll0_3 = {}
+    Ll0_3[1] = {}
+    Ll0_3[1].address = gt[1].address + 48
+    Ll0_3[1].flags = gg.TYPE_DWORD
+    Ll0_3[1].value = "10077"
+    Ll0_3[1].freeze = true
+    gg.setValues(Ll0_3)
+    gg.addListItems(Ll0_3)
+end
+
+function gsb2()
+gg.clearResults()
+gg.setVisible(false)
+gg.searchNumber("25769803776Q;6;200;0;1.0F:105", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("200", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineAddress("4", -1, gg.TYPE_DWORD, gg.SIGN_EQUAL, 0, -1, 0)
+gt1 = gg.getResults (1)
+local Ll0_4 = {}
+         Ll0_4 = {}
+    Ll0_4[1] = {}
+    Ll0_4[1].address = gt1[1].address + 48
+    Ll0_4[1].flags = gg.TYPE_DWORD
+    Ll0_4[1].value = "10083"
+    Ll0_4[1].freeze = true
+    gg.setValues(Ll0_4)
+    gg.addListItems(Ll0_4)
+end
+
+function gsb3()
+gg.clearResults()
+gg.setVisible(false)
+gg.searchNumber("25769803776Q;6;200;0;1.0F:105", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("200", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineAddress("4", -1, gg.TYPE_DWORD, gg.SIGN_EQUAL, 0, -1, 0)
+gt = gg.getResults (1)
+local Ll0_5 = {}
+         Ll0_5 = {}
+    Ll0_5[1] = {}
+    Ll0_5[1].address = gt[1].address + 48
+    Ll0_5[1].flags = gg.TYPE_DWORD
+    Ll0_5[1].value = "10084"
+    Ll0_5[1].freeze = true
+    gg.setValues(Ll0_5)
+    gg.addListItems(Ll0_5)
+end
+
+function gsb4()
+gg.clearResults()
+gg.setVisible(false)
+gg.searchNumber("25769803776Q;6;200;0;1.0F:105", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("200", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineAddress("4", -1, gg.TYPE_DWORD, gg.SIGN_EQUAL, 0, -1, 0)
+gt = gg.getResults (1)
+local Ll0_6 = {}
+         Ll0_6 = {}
+    Ll0_6[1] = {}
+    Ll0_6[1].address = gt[1].address + 48
+    Ll0_6[1].flags = gg.TYPE_DWORD
+    Ll0_6[1].value = "10071"
+    Ll0_6[1].freeze = true
+    gg.setValues(Ll0_6)
+    gg.addListItems(Ll0_6)
+end
+
+function gsb5()
+gg.clearResults()
+gg.setVisible(false)
+gg.searchNumber("25769803776Q;6;200;0;1.0F:105", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("200", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineAddress("4", -1, gg.TYPE_DWORD, gg.SIGN_EQUAL, 0, -1, 0)
+gt= gg.getResults (1)
+local Ll0_7 = {}
+         Ll0_7 = {}
+    Ll0_7[1] = {}
+    Ll0_7[1].address = gt[1].address + 48
+    Ll0_7[1].flags = gg.TYPE_DWORD
+    Ll0_7[1].value = "11305"
+    Ll0_7[1].freeze = true
+    gg.setValues(Ll0_7)
+    gg.addListItems(Ll0_7)
+end
+
+function GAMEEM()
+askk1b = gg.choice({
+"🔙❌【SKILL FARM COWOK】❌🔙",
+
+                "📒SKILL PASIR",
+
+               "📒 SKILL BUFF LIGHT ",
+               
+               "📒SKILL BUF FIGHT ",
+
+               "📒SKILL WIGS",
+
+               "📒BONUS",
+
+         "🔙❌【EXIT】❌🔙",
+
+}, nil,"⏩⏩SCRIPT VIP VELLIX_AO⏪⏪\nVELLIX_AO Aurcus Online\n🇮🇩 Aurcus 3.1.11 GLOBAL🇮🇩")
+if askk1b == nil then else
+if askk1b == 1then askk1b() end
+if askk1b == 2 then gsbbt1() end
+if askk1b == 3 then gsbbt2() end
+if askk1b == 4 then gsbbt3() end
+if askk1b == 5 then gsbbt4() end
+if askk1b == 6 then gsbbt5() end
+if askk1b == 7 then HOME() end
+end
+end
+
+function gsbbt1()
+gg.clearResults()
+gg.setVisible(false)
+gg.searchNumber("25769803776Q;6;200;0;1.0F:105", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("200", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineAddress("4", -1, gg.TYPE_DWORD, gg.SIGN_EQUAL, 0, -1, 0)
+gtv= gg.getResults (1)
+local Ll0__3 = {}
+         Ll0__3 = {}
+    Ll0__3[1] = {}
+    Ll0__3[1].address = gtv[1].address + 48
+    Ll0__3[1].flags = gg.TYPE_DWORD
+    Ll0__3[1].value = "10078"
+    Ll0__3[1].freeze = true
+    gg.setValues(Ll0__3)
+    gg.addListItems(Ll0__3)
+end
+
+function gsbbt2()
+gg.clearResults()
+gg.setVisible(false)
+gg.searchNumber("25769803776Q;6;200;0;1.0F:105", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("200", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineAddress("4", -1, gg.TYPE_DWORD, gg.SIGN_EQUAL, 0, -1, 0)
+gtv1 = gg.getResults (1)
+local Ll0__4 = {}
+         Ll0__4 = {}
+    Ll0__4[1] = {}
+    Ll0__4[1].address = gtv1[1].address + 48
+    Ll0__4[1].flags = gg.TYPE_DWORD
+    Ll0__4[1].value = "10084"
+    Ll0__4[1].freeze = true
+    gg.setValues(Ll0__4)
+    gg.addListItems(Ll0__4)
+end
+
+function gsbbt3()
+gg.clearResults()
+gg.setVisible(false)
+gg.searchNumber("25769803776Q;6;200;0;1.0F:105", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("200", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineAddress("4", -1, gg.TYPE_DWORD, gg.SIGN_EQUAL, 0, -1, 0)
+gtv = gg.getResults (1)
+local Ll0__5 = {}
+         Ll0__5 = {}
+    Ll0__5[1] = {}
+    Ll0__5[1].address = gtv[1].address + 48
+    Ll0__5[1].flags = gg.TYPE_DWORD
+    Ll0__5[1].value = "10085"
+    Ll0__5[1].freeze = true
+    gg.setValues(Ll0__5)
+    gg.addListItems(Ll0__5)
+end
+
+function gsbbt4()
+gg.clearResults()
+gg.setVisible(false)
+gg.searchNumber("25769803776Q;6;200;0;1.0F:105", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("200", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineAddress("4", -1, gg.TYPE_DWORD, gg.SIGN_EQUAL, 0, -1, 0)
+gtv = gg.getResults (1)
+local Ll0__6 = {}
+         Ll0__6 = {}
+    Ll0__6[1] = {}
+    Ll0__6[1].address = gtv[1].address + 48
+    Ll0__6[1].flags = gg.TYPE_DWORD
+    Ll0__6[1].value = "10072"
+    Ll0__6[1].freeze = true
+    gg.setValues(Ll0__6)
+    gg.addListItems(Ll0__6)
+end
+
+function gsbbt5()
+gg.clearResults()
+gg.setVisible(false)
+gg.searchNumber("25769803776Q;6;200;0;1.0F:105", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("200", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineAddress("4", -1, gg.TYPE_DWORD, gg.SIGN_EQUAL, 0, -1, 0)
+gtv= gg.getResults (1)
+local Ll0__7 = {}
+         Ll0__7 = {}
+    Ll0__7[1] = {}
+    Ll0__7[1].address = gtv[1].address + 48
+    Ll0__7[1].flags = gg.TYPE_DWORD
+    Ll0__7[1].value = "11306"
+    Ll0__7[1].freeze = true
+    gg.setValues(Ll0__7)
+    gg.addListItems(Ll0__7)
+end
+
+function dev()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "1166"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.sleep(2000)
+gg.clearList()
+end
+
+function crt()
+gg.clearResults()
+gg.setVisible(false)
+
+gg.processResume()
+gg.searchNumber("3;81;20:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("3", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("25", gg.TYPE_DWORD)
+gg.searchNumber("25769803776Q;6D;858993459200Q;200D;4575657221408423936Q;1.0F:105", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("200", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineAddress("4", -1, gg.TYPE_DWORD, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("50;50;300~400;300~400;1:53", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.searchNumber("1100001F;11524;16:97", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.searchNumber("1F;11524;16:97", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineAddress("C", -1, gg.TYPE_DWORD, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("11524", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("11001", gg.TYPE_DWORD)
+gg.processResume()
+gg.clearResults()
+gg.searchNumber("1F;11522;16:97", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineAddress("C", -1, gg.TYPE_DWORD, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("11522", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("10308", gg.TYPE_DWORD)
+gg.processResume()
+gg.clearResults()
+gg.searchNumber("1F;10081~10082;16", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineAddress("C", -1, gg.TYPE_DWORD, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("10081~10082", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("10290", gg.TYPE_DWORD)
+gg.clearResults()
+end
+
+function bag()
+nbag = gg.multiChoice({
+"🔙❌【AGUS SEDIH】❌🔙",
+
+                "📁  STORAGE",
+
+               "📁  MARKET",
+               
+         "🔙❌【EXIT】❌🔙",
+
+}, nil,"⏩⏩SCRIPT VIP VELLIX_AO⏪⏪\nVELLIX_AO Aurcus Online\n🇮🇩 Aurcus 3.2.0 GLOBAL🇮🇩")
+if nbag == nil then else
+if nbag[1] == true then ale() end
+if nbag[2] == true then BG() end
+if nbag[3] == true then BM() end
+if nbag[4] == true then HOME() end
+end
+end
+
+function BG()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("-1;2;-1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.toast("BUKA ENCHANTMENT")
+gg.sleep(5000)
+gg.refineNumber("-1;59;-1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("59", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+rv = gg.getResults (1)
+local v0_0 = {}
+         v0_0 = {}
+    v0_0[1] = {}
+    v0_0[1].address = rv[1].address + 4
+    v0_0[1].flags = gg.TYPE_DWORD
+    v0_0[1].value = "12"
+    v0_0[1].freeze = false
+    gg.setValues(v0_0)
     end
-    gg.toast("Script dihentikan")
-end
+    
+ function BM()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("-1;2;-1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.toast("BUKA ENCHANTMENT")
+gg.sleep(5000)
+gg.refineNumber("-1;59;-1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("59", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+rTv = gg.getResults (1)
+local Tv0_0 = {}
+         Tv0_0 = {}
+    Tv0_0[1] = {}
+    Tv0_0[1].address = rTv[1].address + 4
+    Tv0_0[1].flags = gg.TYPE_DWORD
+    Tv0_0[1].value = "27"
+    Tv0_0[1].freeze = false
+    gg.setValues(Tv0_0)
+    end
+    
+    function qttp()
+qsbs = gg.multiChoice({
+"🔙❌【QUEST BONUS】❌🔙",
 
-gg.registerExitHandler(onExit)
+                "📒SKIP SETTA",
+                
+                "📒SKIP EVEHOME",
+                
+                "📒AMBIL WATHER SHOT",
+                
+                "📖AMBIL TONGKAT KAYU",
+                
+         "🔙❌【EXIT】❌🔙",
+
+}, nil,"⏩⏩SCRIPT VIP VELLIX_AO⏪⏪\nVELLIX_AO Aurcus Online\n🇮🇩 Aurcus 3.1.11 GLOBAL🇮🇩")
+if qsbs == nil then else
+if qsbs[1] == true then qsbs() end
+if qsbs[2] == true then qsb1() end
+if qsbs[3] == true then qsb2() end
+if qsbs[4] == true then qsb3() end
+if qsbs[5] == true then qsb4() end
+if qsbs[6] == true then HOME() end
+end
+end
+    
+    
+    function qsb1()
+    gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1143", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+    end
+    
+   function qsb2()
+   gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1201", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+   end
+   
+   function qsb3()
+   gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+   end
+   
+   function qsb4()
+   gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("961", gg.TYPE_DWORD)
+
+gg.clearResults()
+gg.processResume()
+   end
+    
+ 
+while true do
+  if gg.isVisible(true) then
+  HOMEDM = 1
+  gg.setVisible(false)
+  end
+  gg.clearResults()
+  if HOMEDM == 1 then
+  HOME()
+ end
+end
