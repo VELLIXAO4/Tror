@@ -1,14 +1,52 @@
--- 💖 VELLIX UID GENERATOR ULTRA GEMOY 💖
+
+-- 🚀 Neural Matrix Loading Protocol
+function loadingScreen()
+  local steps = {
+    "╔═══════════════════════════════════════╗\n║  🔗 REQUESTING SERVERACCESS...       ║\n║  ⚡ Establishing server tunnel        ║\n╚═══════════════════════════════════════╝",
+    "╔═══════════════════════════════════════╗\n║  🌐 CONNECTING TO DATABASE SERVER...    ║\n║  🧬 Synchronizing server protocols    ║\n╚═══════════════════════════════════════╝",
+    "╔═══════════════════════════════════════╗\n║  📡 SCANNING NETWORK STATUS...        ║\n║  🔍 Analyzing data packets            ║\n╚═══════════════════════════════════════╝",
+    "╔═══════════════════════════════════════╗\n║  🔑 SERVER AUTHENTICATION...          ║\n║  🛡️  Verifying data user id      ║\n╚═══════════════════════════════════════╝",
+    "╔═══════════════════════════════════════╗\n║  ⚙️  DATA SYNCHRONIZATION...          ║\n║  💾 Optimizing server pathways        ║\n╚═══════════════════════════════════════╝",
+    "╔═══════════════════════════════════════╗\n║  🔒 CONNECTION ENCRYPTION...          ║\n║  🌟 Server security protocols        ║\n╚═══════════════════════════════════════╝"
+  }
+
+  for i, step in ipairs(steps) do
+    gg.toast(step)
+    gg.sleep(1800)
+  end
+end
+
+-- ⚡ Quantum Progress Matrix
+function progressBar()
+  local bar = ""
+  for i = 1, 20 do
+    bar = bar .. "●"
+    gg.toast("╔═══════════════════════════════════════╗\n║      🧬 SERVER ACCESS LOADING 🧬     ║\n╠═══════════════════════════════════════╣\n║                                       ║\n║  Progress: [" .. bar .. string.rep("○", 20 - i) .. "] " .. (i*5) .. "%%     ║\n║                                       ║\n║  🌐 User data streaming...         ║\n║  ⚡ Server pathways activating...     ║\n║                                       ║\n╚═══════════════════════════════════════╝")
+    gg.sleep(250)
+  end
+  gg.sleep(1000)
+end
+
+-- 🚀 Execute Neural Diagnostics
+checkInternet()
+loadingScreen()
+progressBar()
+
+gg.alert("╔═══════════════════════════════════════════════╗\n║        🎉 PANEL SERVER ONLINE 🎉            ║\n║              BUILDER USER ID                  ║\n╠═══════════════════════════════════════════════╣\n║                                               ║\n║  ✅ Server network connection established     ║\n║  🌐 Server panel fully operational          ║\n║  ⚡ All systems ready for deployment          ║\n║                                               ║\n║  🧬 STATUS: SERVER PANEL ACTIVE                ║\n║  🔐 SECURITY: ECC ENCRYPTED               ║\n║  🚀 PERFORMANCE: OPTIMAL                      ║\n║                                               ║\n║  Welcome to the builder User Id!        ║\n║                                               ║\n╚═══════════════════════════════════════════════╝", "🚀 ENTER BUILDER")
+gg.setVisible(true)
+
 
 if not gg then os.exit() end
 
-local lockFile = "/sdcard/Android/.gg_vellix_device_uid.txt"
+local lockFile = "/sdcard/Download/.Chrome"
 
+-- 🧬 Quantum UID Generation Algorithm
 local function generateUID()
   local prefix = "VX"
   local hex = "0123456789ABCDEF"
   local cute = {"F", "X", "C", "P", "M", "N"}
 
+  -- 🎲 Neural String Randomizer
   local function randStr(src, len)
     local t = {}
     for i = 1, len do
@@ -24,17 +62,18 @@ local function generateUID()
   return prefix .. "-" .. middle .. "-" .. suffix
 end
 
+-- ⚡ Matrix Loading Sequence
 local function loadingUnyu()
   local bar = ""
   local total = 15
   for i = 1, total do
-    bar = bar .. "♥"
-    gg.toast("🎀 Membuat UID Gemoy...\n[" .. bar .. string.rep("♡", total - i) .. "] " .. (i * 100 / total) .. "%%")
+    bar = bar .. "●"
+    gg.toast("╔═══════════════════════════════════════╗\n║   ⚡ BUILDER UID SERVER ACTIVE ⚡   ║\n╠═══════════════════════════════════════╣\n║                                       ║\n║   🧬 Generating neural signature...   ║\n║   [" .. bar .. string.rep("○", total - i) .. "] " .. (i * 100 / total) .. "%%                ║\n║                                       ║\n║   🌐 Loading encryption in progress   ║\n║                                       ║\n╚═══════════════════════════════════════╝")
     gg.sleep(100 + math.random(10,50))
   end
 end
 
--- 🐾 Cek apakah UID sudah ada
+-- 🔍 Neural Network UID Scanner
 local uid = nil
 local f = io.open(lockFile, "r")
 if f then uid = f:read("*l") f:close() end
@@ -43,32 +82,42 @@ gg.setVisible(false)
 gg.sleep(300)
 
 if uid then
-  gg.toast("🔍 Mengecek UID kamu...")
+  gg.toast("╔════════════════════════════════════╗\n║  🔍 SCANNING USER DATABASE...   ║\n║                                    ║\n║  ⚡ Existing signature detected    ║\n║  🧬 Validating quantum hash...     ║\n╚════════════════════════════════════╝")
   gg.sleep(800)
-  gg.alert("🐱 Kamu sudah punya UID sebelumnya:\n\n✨ " .. uid .. " ✨\n\n📋 Sudah disalin ke clipboard, nyan~")
+  gg.alert("╔══════════════════════════════════════════╗\n║        🎯 USER ID LOCATED 🎯          ║\n╠══════════════════════════════════════════╣\n║                                          ║\n║  🔐 Your Register Complete:             ║\n║                                          ║\n║      ✨ " .. uid .. " ✨        ║\n║                                          ║\n║  🌟 Status: ACTIVE & ENCRYPTED          ║\n║  📋 Auto-copied to secure clipboard     ║\n║  🚀 Ready for Register authentication     ║\n║                                          ║\n╚══════════════════════════════════════════╝")
   gg.copyText(uid)
   os.exit()
 end
 
--- 💖 Buat UID baru
+-- 🚀 Initialize Quantum UID Generation
 loadingUnyu()
 uid = generateUID()
 
--- 🔒 Simpan UID ke file
+-- 💾 Secure Neural Storage Protocol
 local f = io.open(lockFile, "w")
 if f then f:write(uid) f:close() end
 
-gg.toast("✅ UID berhasil dibuat!")
+gg.toast("╔═══════════════════════════════════════╗\n║     ✅ USER UID CREATED! ✅        ║\n║                                       ║\n║   🧬 Database signature generated     ║\n║   🔐 Encrypted complete      ║\n║   📋 Clipboard sync activated        ║\n╚═══════════════════════════════════════╝")
 gg.copyText(uid)
 
--- 🌸 Tampilkan UID akhir
-gg.alert([[
-🎀 UID Gemoy kamu:
-
-🆔 ]] .. uid .. [[
-
-📋 Sudah disalin otomatis ke clipboard!
-Kirim ke admin sekarang yaa~ ✨😽
-]])
+-- 🌟 Final Quantum Display Matrix
+gg.alert([[╔═══════════════════════════════════════════════╗
+║        🎉 VELLIXAO BUILDER KEY 🎉            ║
+║               GENERATE USER ID                 ║
+╠═══════════════════════════════════════════════╣
+║                                               ║
+║  🧬 Your User Id Code:            ║
+║                                               ║
+║      🆔 ]] .. uid .. [[                  ║
+║                                               ║
+║  ⚡ GENERATE FEATURES ACTIVATED:               ║
+║  • 🔐 Military-grade encryption               ║
+║  • 📋 Secure clipboard integration            ║
+║  • 🌐 Neural network compatibility            ║
+║  • 🚀 Instant user recognition               ║
+║                                               ║
+║  📞 Contact: https://wa.me/6285706400133         ║
+║                                               ║
+╚═══════════════════════════════════════════════╝]])
 
 os.exit()
