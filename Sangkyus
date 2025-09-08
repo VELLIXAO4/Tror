@@ -1,4 +1,20 @@
-
+T = gg.getTargetPackage ()
+if T == "com.asobimo.aurcusonline.ww" then
+if true then
+    local search = gg.searchNumber
+    local func = function(...)
+        gg.setVisible(false)
+        local tab = search(...)
+        if gg.isVisible() then
+            gg.setVisible(false)
+            gg.alert("[💢] Ga Usah Di Intip Bang!")
+            gg.sleep("1000")
+            gg.processKill()
+        end
+        return tab
+    end
+    gg.searchNumber = func
+end
 function HOME()
 gg.setVisible(false)
 HOMEMENU = gg.choice({
@@ -249,6 +265,944 @@ if ccmenu == 2 then cc1()
  end
  if ccmenu == 29 then HOME()
  end
+end
+
+function cc1()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "27"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc2()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "53"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc3()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "71"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc4()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "79"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc5()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "106"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc6()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "129"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc7()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "140"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc8()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "164"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc9()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "172"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc10()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "202"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc11()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "237"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc12()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "245"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc13()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "308"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc14()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "320"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc15()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "356"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc16()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "367"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc17()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "426"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc18()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "503"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc19()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "511"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc20()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "563"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc21()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "571"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc22()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "664"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc23()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "710"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc24()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "716"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc25()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "825"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc26()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.processResume()
+gg.searchNumber("964;2;1:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("964", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100)
+gg.editAll("1185", gg.TYPE_DWORD)
+gg.clearResults()
+
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+
+local t = gg.getResults(100)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "916"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+gg.processResume()
+gg.setVisible(false)
+-- ✅ Tunggu manual klik icon GG untuk clear
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
+end
+
+function cc27()
+gg.clearResults()
+gg.setVisible(false)
+gg.setRanges(gg.REGION_JAVA_HEAP)
+gg.searchNumber("404;1~3;255:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+gg.refineNumber("404", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+revert = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+local t = gg.getResults(100, nil, nil, nil, nil, nil, nil, nil, nil)
+for i, v in ipairs(t) do
+	if v.flags == gg.TYPE_DWORD then
+		v.value = "1132"
+		v.freeze = true
+	end
+end
+gg.addListItems(t)
+t = nil
+-- ✅ Tunggu manual klik icon GG untuk clear
+gg.alert("🔒 Value dibekukan. Klik icon GG untuk membersihkan...")
+while not gg.isVisible() do
+  gg.sleep(100)
+end
+gg.setVisible(false)
+gg.clearResults()
+gg.clearList()
+gg.toast("🗑️ Freeze & Result dibersihkan.")
 end
 
 function gp()
@@ -2029,7 +2983,11 @@ gg.clearResults()
 gg.processResume()
    end
     
- 
+ else
+gg.setVisible(false)
+gg.alert("❌Not Script To Game❌")
+os.exit()
+end
 while true do
   if gg.isVisible(true) then
   HOMEDM = 1
