@@ -1,17 +1,3 @@
-local url = "https://www.google.com/"
-
--- 🔍 Quantum Network Scanner
-function checkInternet()
-  gg.toast("╔═══════════════════════════════════════╗\n║    🌐 SCURITY NETWORK SCANNER 🌐     ║\n║                                       ║\n║  ⚡ Scanning Network pathways...       ║\n║  🔍 Analyzing network Access        ║\n╚═══════════════════════════════════════╝")
-  gg.sleep(2000)
-  local result = gg.makeRequest(url)
-  if not result or not result.content then
-    gg.alert("╔═══════════════════════════════════════╗\n║       ❌ NETWORK USER FAILED ❌       ║\n╠═══════════════════════════════════════╣\n║                                       ║\n║  🚫 User network disconnected      ║\n║  📡 No access pathway detected        ║\n║  🔌 Check your network connection      ║\n║                                       ║\n║  💀 System Loading...             ║\n║                                       ║\n╚═══════════════════════════════════════╝")
-    os.exit()
-  end
-end
-
--- 🚀 Neural Matrix Loading Protocol
 function loadingScreen()
   local steps = {
     "╔═══════════════════════════════════════╗\n║  🔗 REQUESTING SERVERACCESS...       ║\n║  ⚡ Establishing server tunnel        ║\n╚═══════════════════════════════════════╝",
