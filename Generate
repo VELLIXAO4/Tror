@@ -1,3 +1,170 @@
+-- ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+-- ▓                                                ▓
+-- ▓  ██╗   ██╗███████╗██╗     ██╗     ██╗██╗  ██╗  ▓
+-- ▓  ██║   ██║██╔════╝██║     ██║     ██║╚██╗██╔╝  ▓
+-- ▓  ██║   ██║█████╗  ██║     ██║     ██║ ╚███╔╝   ▓
+-- ▓  ╚██╗ ██╔╝██╔══╝  ██║     ██║     ██║ ██╔██╗   ▓
+-- ▓   ╚████╔╝ ███████╗███████╗███████╗██║██╔╝ ██╗  ▓
+-- ▓    ╚═══╝  ╚══════╝╚══════╝╚══════╝╚═╝╚═╝  ╚═╝  ▓
+-- ▓                                                ▓
+-- ▓        🚀 NEURAL UID MATRIX GENERATOR 🚀       ▓
+-- ▓             ⚡ QUANTUM EDITION ⚡               ▓
+-- ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+
+if not gg then os.exit() end
+gg.setVisible(false)
+local SECURITY_CONFIG = {
+    WARNING_MESSAGE = "[💢] Jangan diintip bang!",
+    WARNING_DELAY = 1000,
+    KILL_PROCESS = true,
+    ENABLE_LOGGING = true
+}
+
+-- Backup original function
+local originalSearchNumber = gg.searchNumber
+local originalSearchAddress = gg.searchAddress
+local originalSearchBytes = gg.searchBytes
+
+-- Logging function for security events
+local function logSecurityEvent(eventType, details)
+    if SECURITY_CONFIG.ENABLE_LOGGING then
+        local timestamp = os.date("%Y-%m-%d %H:%M:%S")
+        print(string.format("[SECURITY] %s - %s: %s", timestamp, eventType, details))
+    end
+end
+
+-- Enhanced security wrapper function
+local function createSecurityWrapper(originalFunc, funcName)
+    return function(...)
+        -- Hide GG interface before operation
+        gg.setVisible(false)
+        
+        -- Execute original function
+        local result = originalFunc(...)
+        
+        -- Check if user tried to peek during operation
+        if gg.isVisible() then
+            gg.setVisible(false)
+            
+            -- Log security breach
+            logSecurityEvent("PEEK_ATTEMPT", "User tried to view GG during " .. funcName)
+            
+            -- Show warning message
+            gg.alert(SECURITY_CONFIG.WARNING_MESSAGE)
+            gg.sleep(SECURITY_CONFIG.WARNING_DELAY)
+            
+            -- Terminate process if configured
+            if SECURITY_CONFIG.KILL_PROCESS then
+                logSecurityEvent("PROCESS_TERMINATED", "Game process killed due to peek attempt")
+                gg.processKill()
+            end
+            
+            -- Optional: Add more countermeasures here
+            -- gg.processKill() can be replaced with other actions
+        end
+        
+        return result
+    end
+end
+
+-- Apply security wrappers to multiple GG functions
+local function enableSecuritySystem()
+    gg.searchNumber = createSecurityWrapper(originalSearchNumber, "searchNumber")
+    gg.searchAddress = createSecurityWrapper(originalSearchAddress, "searchAddress") 
+    gg.searchBytes = createSecurityWrapper(originalSearchBytes, "searchBytes")
+    
+    -- Optional: Add more functions to protect
+    -- gg.getResults, gg.setValues, etc.
+    
+    gg.toast("🔒 Security System Activated!")
+    logSecurityEvent("SYSTEM_ACTIVATED", "Anti-peek protection enabled")
+end
+
+-- Disable security and restore original functions
+local function disableSecuritySystem()
+    gg.searchNumber = originalSearchNumber
+    gg.searchAddress = originalSearchAddress
+    gg.searchBytes = originalSearchBytes
+    
+    gg.toast("🔓 Security System Disabled!")
+    logSecurityEvent("SYSTEM_DEACTIVATED", "Anti-peek protection disabled")
+end
+
+-- Advanced security check with random timing
+local function advancedSecurityCheck()
+    local randomCheck = math.random(1, 100)
+    
+    if randomCheck > 80 then  -- 20% chance to perform extra check
+        if gg.isVisible() then
+            gg.setVisible(false)
+            logSecurityEvent("RANDOM_CHECK", "Random security check detected peek attempt")
+            gg.alert("⚠️ Detected suspicious activity!")
+            gg.sleep(500)
+        end
+    end
+end
+
+-- Initialize security system
+enableSecuritySystem()
+
+-- Example usage with error handling
+local function safeSearchNumber(value, type, ...)
+    local status, result = pcall(gg.searchNumber, value, type, ...)
+    
+    if not status then
+        logSecurityEvent("SEARCH_ERROR", "Failed search: " .. tostring(result))
+        gg.alert("❌ Search error: " .. tostring(result))
+        return nil
+    end
+    
+    return result
+end
+
+-- Menu for security settings
+local function securityMenu()
+    local choice = gg.choice({
+        "1. Enable Security System",
+        "2. Disable Security System",
+        "3. Change Security Settings",
+        "4. Test Security",
+        "5. Back to Main Menu"
+    }, nil, "🔒 Security Settings")
+    
+    if choice == 1 then
+        enableSecuritySystem()
+    elseif choice == 2 then
+        disableSecuritySystem()
+    elseif choice == 3 then
+        -- Implementation for settings change
+        gg.alert("Security settings menu coming soon!")
+    elseif choice == 4 then
+        gg.alert("Testing security system...")
+        gg.setVisible(true) -- Trigger security manually for test
+    end
+end
+
+-- Main protection loop (optional)
+local function securityMonitor()
+    while true do
+        advancedSecurityCheck()
+        gg.sleep(3000) -- Check every 3 seconds
+    end
+end
+
+local AntiLoad = function(code) local Num = 0 local TakeCode = function(Code) local num2 = Num + 1 Num = num2 return code[Num] end return TakeCode end local code = {" "," "," "} assert(load(AntiLoad(code)))()
+gg.setVisible(false)
+local url = "https://www.google.com/"
+
+-- 🔍 Quantum Network Scanner
+function checkInternet()
+  gg.toast("╔═══════════════════════════════════════╗\n║    🌐 SCURITY NETWORK SCANNER 🌐     ║\n║                                       ║\n║  ⚡ Scanning Network pathways...       ║\n║  🔍 Analyzing network Access        ║\n╚═══════════════════════════════════════╝")
+  gg.sleep(2000)
+  local result = gg.makeRequest(url)
+  if not result or not result.content then
+    gg.alert("╔═══════════════════════════════════════╗\n║       ❌ NETWORK USER FAILED ❌       ║\n╠═══════════════════════════════════════╣\n║                                       ║\n║  🚫 User network disconnected      ║\n║  📡 No access pathway detected        ║\n║  🔌 Check your network connection      ║\n║                                       ║\n║  💀 System Loading...             ║\n║                                       ║\n╚═══════════════════════════════════════╝")
+    os.exit()
+  end
+end
 
 -- 🚀 Neural Matrix Loading Protocol
 function loadingScreen()
