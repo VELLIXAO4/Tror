@@ -337,7 +337,7 @@ end
 function HOME()
 gg.setVisible(false)
 HOMEMENU = gg.choice({
-"____MENU____",
+"____BYPASS____",
 
 "📁 UNTUK FARM ",
 
