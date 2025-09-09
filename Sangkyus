@@ -1281,13 +1281,13 @@ local effectCodes = {178, 134, 200, 432, 110, 111, 117, 253, 254, 369, 165, 442,
 gg.setVisible(false)
 gg.clearResults()
 gg.setRanges(gg.REGION_JAVA_HEAP)
-gg.searchNumber("65536;1;375:13", gg.TYPE_DWORD, false, gg.SIGN_EQUAL)
+gg.searchNumber("65536;1;210:13", gg.TYPE_DWORD, false, gg.SIGN_EQUAL)
 gg.sleep(500)
-gg.refineNumber("375", gg.TYPE_DWORD)
+gg.refineNumber("210", gg.TYPE_DWORD)
 local results = gg.getResults(1)
 
 if #results == 0 then
-  gg.alert("❌ Tidak ditemukan nilai 375.")
+  gg.alert("❌ Tidak ditemukan.")
   os.exit()
 end
 
@@ -1311,9 +1311,6 @@ end
 
 gg.setValues(initialSet)
 gg.addListItems(initialSet)
-gg.toast("✅ Nilai 375 diubah jadi 61 dan dibekukan.")
-
--- Fungsi untuk menampilkan menu
 local function showEditMenu()
   while true do
     gg.setVisible(false)
