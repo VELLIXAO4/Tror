@@ -15,6 +15,9 @@ if true then
     end
     gg.searchNumber = func
 end
+local farmingEffectCodes = {178, 178, 134, 134, 200, 200, 432, 432, 110, 110, 111, 111, 117, 117, 253, 253, 254, 254, 369, 369, 165, 165, 442, 442, 52, 52, 51, 51}
+local xpEffectCodes = {133, 133, 157, 157, 200, 200, 222, 222, 432, 432, 192, 192, 199, 199, 197, 197, 164, 164, 216, 216, 217, 217, 555, 555, 553, 553, 545, 545, 49, 49, 50, 50, 57, 57, 202, 202}
+
 function HOME()
 gg.setVisible(false)
 HOMEMENU = gg.choice({
@@ -1273,12 +1276,7 @@ gg.addListItems(t)
 t = nil
 end
 
-function buffp()
-gg.clearResults()
-gg.setVisible(false)
-gg.setRanges(gg.REGION_JAVA_HEAP)
-local farmingEffectCodes = {178, 178, 134, 134, 200, 200, 432, 432, 110, 110, 111, 111, 117, 117, 253, 253, 254, 254, 369, 369, 165, 165, 442, 442, 52, 52, 51, 51}
-local xpEffectCodes = {133, 133, 157, 157, 200, 200, 222, 222, 432, 432, 192, 192, 199, 199, 197, 197, 164, 164, 216, 216, 217, 217, 555, 555, 553, 553, 545, 545, 49, 49, 50, 50, 57, 57, 202, 202} -- <-- Nanti kamu isi sendiri
+function buffp() -- <-- Nanti kamu isi sendiri
 
 -- Fungsi: Simpan hasil pencarian trigger
 function cariTrigger()
@@ -2941,7 +2939,6 @@ end
 function crtttt0000()
 gg.clearResults()
 gg.setVisible(false)
-
 gg.processResume()
 gg.searchNumber("3;81;20:9", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
 gg.refineNumber("3", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
