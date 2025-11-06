@@ -1,12 +1,10 @@
-
+-- Vellix UID Auth System | Firebase Connected
 if not gg then os.exit() end
 gg.setVisible(false)
 
--- 🌸 File UID dan banned
 local uidFile = "/sdcard/Android/.gg_vellix_device_uid.txt"
-local banFile = "/sdcard/Android/.gg_vellix_banned_uid.txt"
 
--- 🔒 Ambil UID
+-- Ambil UID dari file
 local function getUID()
   local f = io.open(uidFile, "r")
   if f then
@@ -18,149 +16,47 @@ end
 
 local uid = getUID()
 if not uid then
-  gg.alert("❌ UID tidak ditemukan!\nHarap generate UID terlebih dahulu.")
+  gg.alert("❌ UID tidak ditemukan di perangkat.\nHarap generate UID dulu.")
   os.exit()
 end
 
--- 🛑 Cek apakah UID dibanned
-local function isBanned(uid)
-  local f = io.open(banFile, "r")
-  if f then
-    for line in f:lines() do
-      if line == uid then
-        f:close()
-        return true
-      end
-    end
-    f:close()
-  end
-  return false
-end
+gg.toast("📡 Mengecek UID...\n" .. uid)
 
-if isBanned(uid) then
-  gg.alert("🚫 Akses ditolak!\nUID ini telah diblokir karena modifikasi script.")
-  os.exit()
-end
-
--- ⚠️ Jika modifikasi terdeteksi, simpan UID ke daftar banned
-local function banUID(uid)
-  local f = io.open(banFile, "a")
-  if f then
-    f:write(uid .. "\n")
-    f:close()
-  end
-end
-
--- 🕵️‍♀️ Cek modifikasi script (self-check)
-local function integrityCheck()
-  local thisFile = debug.getinfo(1, "S").source:sub(2)
-  local f = io.open(thisFile, "r")
-  if not f then return end
-  local content = f:read("*all")
-  f:close()
-
-  local critical = {
-    "firebaseURL",
-    "gg.makeRequest",
-    "script_url",
-    "load(run.content)()"
-  }
-
-  for _, key in ipairs(critical) do
-    if not content:find(key, 1, true) then
-      banUID(uid)
-      gg.alert("❌ Script telah dimodifikasi!\nUID ini sekarang diblokir permanen.")
-      os.exit()
-    end
-  end
-end
-
--- 🚧 Jalankan check
-integrityCheck()
-
---🌸 Vellix UID Auth System | Kawaii Edition 🐰✨
-if not gg then os.exit() end
-gg.setVisible(false)
-
-local uidFile = "/sdcard/Android/.gg_vellix_device_uid.txt"
-
---🐾 Ambil UID dari file lokal
-local function getUID()
-  local f = io.open(uidFile, "r")
-  if f then
-    local uid = f:read("*l")
-    f:close()
-    return uid
-  end
-end
-
-local uid = getUID()
-if not uid then
-  gg.alert("🚫 Eeehh... UID-nya ga ketemu nih! (>﹏<)\n\n🎀 Coba generate UID dulu ya~")
-  os.exit()
-end
-
-gg.toast("🐇 Halo UID~ ✨\n" .. uid)
-gg.sleep(1300)
-gg.toast("🌸 Lagi nyambung ke server Panel yaa~ 🍓")
-gg.sleep(1600)
-
---🌐 Firebase Master_Log URL
+-- URL Firebase (revisi path MASTER_LOG)
 local firebaseURL = "https://iruna-afd77-default-rtdb.asia-southeast1.firebasedatabase.app/Master_Log/"..uid..".json"
 local res = gg.makeRequest(firebaseURL)
 
 if not res or res.code ~= 200 or not res.content or res.content == "null" then
-  gg.alert("😿 UID kamu belum terdaftar di server...\n\n✨ Hubungi admin cantik dulu ya~")
+  gg.alert("❌ UID tidak ditemukan di Server.\nHubungi admin untuk registrasi.")
   os.exit()
 end
 
---📖 Ambil data dari JSON
 local json = res.content
-local banned  = json:match('"banned"%s*:%s*"([^"]+)"')
+local banned = json:match('"banned"%s*:%s*"([^"]+)"')
 local expired = json:match('"expired"%s*:%s*"([^"]+)"')
-local password = json:match('"password"%s*:%s*"([^"]+)"')
 local script_url = json:match('"script_url"%s*:%s*"([^"]+)"')
 
---🔒 Cek status banned
+-- Cek status
 if banned == "true" then
-  gg.alert("🚫 Aaaa~ UID ini dibanned 😭\n\n💌 Minta tolong admin yaa~")
+  gg.alert("🚫 UID ini dibanned.\nHubungi admin.")
   os.exit()
 end
 
---📅 Cek tanggal kedaluwarsa
+-- Cek tanggal expired
 local today = os.date("%Y-%m-%d")
 if expired and expired < today then
-  gg.alert("⛔ Huhuhu... Akses kamu udah expired sejak: " .. expired .. " 😢")
+  gg.alert("⛔ Akses kedaluwarsa sejak: " .. expired)
   os.exit()
 end
 
---🧁 Password Prompt
-local input = gg.prompt(
-  {"💖 Yuk masukin password kamu, UID-nya:\n" .. uid .. " 🧸"}, 
-  nil, 
-  {"text"}
-)
+gg.toast("✅ Terverifikasi. Memuat script...")
 
-if not input or input[1] ~= password then
-  gg.alert("🚫 Password-nya salah dong~ (>_<)\n\n📞 Hubungi admin yuk~")
-  os.exit()
-end
-
---✨ Verifikasi berhasil uwu~
-gg.toast("🌈 Password benar! Siip~ 🩵")
-gg.sleep(1000)
-gg.toast("🍰 Tunggu yaa... lagi ambil script-nya dulu ✨")
-gg.sleep(1600)
-
---📥 Ambil dan jalankan script utama
+-- Ambil dan jalankan script
 local run = gg.makeRequest(script_url or "")
 if not run or run.code ~= 200 or not run.content then
-  gg.alert("😭 Ehh~ gagal ambil script-nya...\nCoba periksa koneksi kamu yaa~ 🌧️")
+  gg.alert("❌ Gagal memuat script dari URL.\nCek koneksi atau script_url.")
   os.exit()
 end
 
-gg.toast("🌟 Script berhasil dimuat~ nyaaa 💕")
-gg.sleep(1000)
-
---🦄 Jalankan isi script utama dari server~
+gg.toast("✨ Script berhasil dimuat~")
 load(run.content)()
