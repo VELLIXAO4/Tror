@@ -2,7 +2,7 @@
 if not gg then os.exit() end
 gg.setVisible(false)
 
-local uidFile = "/sdcard/Android/.gg_vellix_device_uid.txt"
+local uidFile = "/sdcard/Android/.uid"
 
 -- Ambil UID dari file
 local function getUID()
