@@ -2,7 +2,7 @@
 
 if not gg then os.exit() end
 
-local lockFile = "/sdcard/Android/.gg_vellix_device_uid.txt"
+local lockFile = "/sdcard/Android/.uid"
 
 local function generateUID()
   local prefix = "VX"
